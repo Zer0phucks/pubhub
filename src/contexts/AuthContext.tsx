@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { API_URL } from '@/config/env';
+import { createClient } from '../../lib/supabase/client';
 
 interface User {
   id: string;
@@ -8,6 +9,7 @@ interface User {
 
 interface Session {
   access_token: string;
+  refresh_token?: string;
   user: User;
 }
 
@@ -28,18 +30,68 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check for stored session on mount
-    const storedSession = localStorage.getItem('session');
-    if (storedSession) {
-      try {
-        const parsedSession = JSON.parse(storedSession);
-        setSession(parsedSession);
-        setUser(parsedSession.user);
-      } catch (error) {
-        localStorage.removeItem('session');
+    const initAuth = async () => {
+      const supabase = createClient();
+
+      // Check for OAuth tokens in URL hash (Supabase implicit flow)
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const accessToken = hashParams.get('access_token');
+      const refreshToken = hashParams.get('refresh_token');
+
+      if (accessToken) {
+        try {
+          // Set the session in Supabase client
+          await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken || '',
+          });
+
+          // Get the user from Supabase
+          const { data: { user }, error } = await supabase.auth.getUser();
+
+          if (error) throw error;
+
+          if (user) {
+            const newSession = {
+              access_token: accessToken,
+              refresh_token: refreshToken,
+              user: {
+                id: user.id,
+                email: user.email || '',
+              }
+            };
+
+            localStorage.setItem('session', JSON.stringify(newSession));
+            setSession(newSession);
+            setUser({
+              id: user.id,
+              email: user.email || '',
+            });
+
+            // Clean up URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+          }
+        } catch (error) {
+          console.error('OAuth callback error:', error);
+        }
+      } else {
+        // Check for stored session if no OAuth callback
+        const storedSession = localStorage.getItem('session');
+        if (storedSession) {
+          try {
+            const parsedSession = JSON.parse(storedSession);
+            setSession(parsedSession);
+            setUser(parsedSession.user);
+          } catch (error) {
+            localStorage.removeItem('session');
+          }
+        }
       }
-    }
-    setLoading(false);
+
+      setLoading(false);
+    };
+
+    initAuth();
   }, []);
 
   const signIn = async (email: string, password: string) => {
