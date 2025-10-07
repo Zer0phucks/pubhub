@@ -7,6 +7,7 @@ config({ path: '.env.local' });
 import { cors } from 'hono/cors';
 import { serve } from '@hono/node-server';
 import aiRoutes from './api/ai';
+import authRoutes from './api/auth';
 
 const app = new Hono();
 
@@ -16,8 +17,9 @@ app.use('/*', cors({
   credentials: true,
 }));
 
-// Mount AI routes
+// Mount routes
 app.route('/api/ai', aiRoutes);
+app.route('/api/auth', authRoutes);
 
 // Health check endpoint
 app.get('/health', (c) => c.json({ status: 'ok' }));

@@ -49,12 +49,16 @@ import { SettingsPanel } from "./components/SettingsPanel";
 import { AIChatDialog } from "./components/AIChatDialog";
 import { Toaster } from "./components/ui/sonner";
 import { TransformedContent } from "./utils/contentTransformer";
+import { useAuth } from "./contexts/AuthContext";
+import { AuthPage } from "./components/Auth/AuthPage";
+import { AuthCallback } from "./components/Auth/AuthCallback";
 
 type View = "home" | "compose" | "inbox" | "calendar" | "analytics" | "library" | "notifications" | "settings";
 type Platform = "all" | "twitter" | "instagram" | "linkedin" | "facebook" | "youtube" | "tiktok" | "pinterest" | "reddit" | "blog";
 type InboxView = "all" | "unread" | "comments" | "messages";
 
 export default function App() {
+  const { user, loading } = useAuth();
   const [currentView, setCurrentView] = useState<View>("home");
   const [selectedPlatform, setSelectedPlatform] = useState<Platform>("all");
   const [inboxView, setInboxView] = useState<InboxView>("unread");
@@ -234,6 +238,27 @@ export default function App() {
         return <Home selectedPlatform={selectedPlatform} />;
     }
   };
+
+  // Check if we're handling OAuth callback
+  if (window.location.pathname === '/auth/callback') {
+    return <AuthCallback />;
+  }
+
+  // Show auth page if not logged in
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <PubHubLogo className="h-16 w-auto mx-auto mb-4" />
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <AuthPage onAuthenticated={() => window.location.reload()} />;
+  }
 
   return (
     <SidebarProvider>
