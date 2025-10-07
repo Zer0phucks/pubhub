@@ -1,18 +1,18 @@
 # AI Features Setup Guide
 
-PubHub uses **Azure OpenAI with GPT-5-mini** for AI-powered features including chat assistance and content transformation.
+PubHub uses **Azure OpenAI with gpt-5-nano** for AI-powered features including chat assistance and content transformation.
 
 ## Prerequisites
 
 1. **Azure OpenAI Service**: An Azure subscription with OpenAI service enabled
-2. **Deployed Model**: GPT-5-mini deployment in your Azure OpenAI resource
+2. **Deployed Model**: gpt-5-nano deployment in your Azure OpenAI resource
 
 ## Architecture
 
 PubHub uses a **client-server architecture** for AI features:
 - **Frontend (Vite/React)**: Makes requests to backend API
 - **Backend API (Hono)**: Handles AI requests using Azure OpenAI SDK
-- **Azure OpenAI**: Provides GPT-5-mini model for AI features
+- **Azure OpenAI**: Provides gpt-5-nano model for AI features
 
 This architecture ensures:
 - Secure API key management (keys never exposed to browser)
@@ -30,7 +30,7 @@ This architecture ensures:
 4. Go to **Keys and Endpoint** section
 5. Copy your **API Key** and **Endpoint URL**
 6. Go to **Model deployments**
-7. Deploy the **gpt-5-mini** model (note the deployment name)
+7. Deploy the **gpt-5-nano** model (note the deployment name)
 
 ### 2. Configure Environment Variables
 
@@ -38,7 +38,7 @@ Create or update `.env.local` with your Azure OpenAI credentials:
 
 ```bash
 # Azure OpenAI Configuration (Required)
-AZURE_ENDPOINT=https://your-resource-name.openai.azure.com/openai/deployments/gpt-5-mini/chat/completions?api-version=2024-08-01-preview
+AZURE_ENDPOINT=https://your-resource-name.openai.azure.com/openai/deployments/gpt-5-nano/chat/completions?api-version=2024-08-01-preview
 AZURE_API_KEY=your-azure-api-key
 ```
 
@@ -69,7 +69,7 @@ Azure OpenAI provides:
 - **Security and compliance**: SOC 2, HIPAA, and other compliance certifications
 - **Data privacy**: Your data stays in your Azure region and is not used for training
 - **Scalability**: Auto-scaling to handle varying workloads
-- **Advanced models**: Access to latest GPT models including GPT-5-mini
+- **Advanced models**: Access to latest GPT models including gpt-5-nano
 - **No CORS issues**: Server-side usage eliminates browser security restrictions
 
 ### 5. Testing the Setup
@@ -182,7 +182,7 @@ maxTokens: 1500, // Default for transformations
 **Solution**:
 1. Verify `AZURE_ENDPOINT` and `AZURE_API_KEY` are set in `.env.local`
 2. Check that the API key is valid from your Azure OpenAI resource
-3. Ensure your Azure OpenAI resource has the gpt-5-mini model deployed
+3. Ensure your Azure OpenAI resource has the gpt-5-nano model deployed
 4. Restart the backend server (`npm run dev:server`) after updating `.env.local`
 
 ### "AI transformation failed"
@@ -193,7 +193,7 @@ maxTokens: 1500, // Default for transformations
 1. Check your Azure OpenAI quota in the Azure Portal
 2. Verify network connectivity to Azure
 3. Check browser console and backend server logs for detailed error messages
-4. Ensure your deployment name matches `gpt-5-mini`
+4. Ensure your deployment name matches `gpt-5-nano`
 5. Content will fall back to template-based generation if AI fails
 
 ### Rate limiting
@@ -222,7 +222,7 @@ maxTokens: 1500, // Default for transformations
 
 Azure OpenAI charges based on:
 - **Token usage**: Per 1000 tokens (input and output)
-- **Model tier**: GPT-5-mini is cost-effective for most use cases
+- **Model tier**: gpt-5-nano is cost-effective for most use cases
 - **Data processing**: Data in/out charges apply
 
 ### Reducing Costs

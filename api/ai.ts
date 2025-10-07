@@ -25,8 +25,8 @@ const getAIModel = () => {
     apiKey,
   });
 
-  // Using GPT-5-mini deployment
-  return azure('gpt-5-mini');
+  // Using gpt-5-nano deployment
+  return azure('gpt-5-nano');
 };
 
 const SYSTEM_PROMPT = `You are PubHub AI, a helpful content creation assistant for social media creators.
