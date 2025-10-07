@@ -18,7 +18,9 @@ A powerful, modern dashboard for content creators to manage, schedule, and publi
 
 - **Frontend**: React 18, TypeScript, Vite
 - **UI**: Tailwind CSS v4, shadcn/ui components
-- **Backend**: Supabase (PostgreSQL, Auth, Storage)
+- **Backend**:
+  - Supabase (PostgreSQL, Auth, Storage)
+  - Hono API Server (AI endpoints)
 - **Hosting**: Vercel
 - **Background Jobs**: Inngest
 - **AI**: Vercel AI SDK with Google Gemini 2.5 Flash-Lite via AI Gateway
@@ -56,18 +58,25 @@ A powerful, modern dashboard for content creators to manage, schedule, and publi
 4. **Configure environment variables**
    - Copy `.env.example` to `.env.local`
    - Add your Supabase credentials
+   - Add Vercel AI Gateway API key (for AI features - see [AI Setup Guide](./AI_SETUP.md))
    - Optionally add platform API keys for integrations
 
-5. **Start development server**
+5. **Start both servers**
    ```bash
-   npm run dev
+   # Start frontend (port 5173/3000) + backend API (port 3001)
+   npm run dev:all
+
+   # Or separately:
+   npm run dev        # Frontend only
+   npm run dev:server # Backend API only
    ```
 
 6. **Open your browser**
-   Navigate to [http://localhost:5173](http://localhost:5173)
+   Navigate to [http://localhost:5173](http://localhost:5173) or [http://localhost:3000](http://localhost:3000)
 
 ## 📚 Documentation
 
+- [AI Setup Guide](./AI_SETUP.md) - Complete guide for AI features with Vercel AI Gateway
 - [Backend Integration Guide](./src/BACKEND_INTEGRATION_GUIDE.md) - Comprehensive backend architecture and API documentation
 - [Setup Guide](./SETUP_GUIDE.md) - Detailed setup instructions
 - [AI Chat Feature](./AI_CHAT_FEATURE.md) - AI assistant implementation details
@@ -87,12 +96,14 @@ INSTAGRAM_CLIENT_ID=
 YOUTUBE_CLIENT_ID=
 # ... etc
 
-# AI Features - Vercel AI Gateway with Google Gemini (Optional)
-VITE_AI_GATEWAY_URL=https://gateway.ai.cloudflare.com/v1/<account_id>/<gateway_name>/google-ai-studio/v1beta
-VITE_GOOGLE_GENERATIVE_AI_API_KEY=your-google-api-key
+# AI Features - Vercel AI Gateway (Optional)
+# Get your key from https://vercel.com/dashboard (AI → Gateway)
+VITE_AI_GATEWAY_API_KEY=your-vercel-ai-gateway-key
 ```
 
 See `.env.example` for complete list.
+
+**Note**: The Vercel AI Gateway API key provides access to Google Gemini 2.5 Flash-Lite through Vercel's AI Gateway. See [AI_SETUP.md](./AI_SETUP.md) for detailed setup instructions.
 
 ## 🏗️ Project Structure
 

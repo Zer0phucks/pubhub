@@ -4,70 +4,83 @@ PubHub uses **Google Gemini 2.5 Flash-Lite** via **Vercel AI Gateway** for AI-po
 
 ## Prerequisites
 
-1. **Google AI API Key**: Get your API key from [Google AI Studio](https://aistudio.google.com/app/apikey)
-2. **Vercel AI Gateway** (Optional but Recommended): Set up at [Vercel AI Gateway](https://vercel.com/docs/ai-gateway)
+1. **Vercel AI Gateway API Key**: Get your API key from [Vercel Dashboard](https://vercel.com/dashboard)
+
+## Architecture
+
+PubHub uses a **client-server architecture** for AI features:
+- **Frontend (Vite/React)**: Makes requests to backend API
+- **Backend API (Hono)**: Handles AI requests using Vercel AI Gateway
+- **Vercel AI Gateway**: Proxies requests to Google Gemini with caching and optimization
+
+This architecture ensures:
+- Secure API key management (keys never exposed to browser)
+- No CORS issues with AI Gateway
+- Better caching and rate limiting
+- Simplified authentication
 
 ## Setup Steps
 
-### 1. Get Google AI API Key
-
-1. Visit [Google AI Studio](https://aistudio.google.com/app/apikey)
-2. Sign in with your Google account
-3. Click **"Get API key"** or **"Create API key"**
-4. Copy the generated API key
-
-### 2. Configure Environment Variables
-
-Create or update `.env.local` with your API keys:
-
-```bash
-# Google Gemini API Key (Required)
-VITE_GOOGLE_GENERATIVE_AI_API_KEY=your-google-api-key-here
-
-# Vercel AI Gateway URL (Optional - for advanced features)
-VITE_AI_GATEWAY_URL=https://gateway.ai.cloudflare.com/v1/<account_id>/<gateway_name>/google-ai-studio/v1beta
-```
-
-### 3. Vercel AI Gateway Setup (Optional)
-
-For production deployments, using Vercel AI Gateway provides:
-- Request caching
-- Rate limiting
-- Analytics and monitoring
-- Cost optimization
-
-**Setup Instructions:**
+### 1. Get Vercel AI Gateway API Key
 
 1. Go to [Vercel Dashboard](https://vercel.com/dashboard)
 2. Navigate to **AI** → **Gateway**
-3. Create a new gateway
-4. Configure it for Google AI Studio
-5. Copy the gateway URL
-6. Update `VITE_AI_GATEWAY_URL` in `.env.local`
+3. Create a new gateway or use an existing one
+4. Configure it for **Google AI Studio**
+5. Copy the gateway API key (starts with `vck_`)
 
-**Gateway URL Format:**
+### 2. Configure Environment Variables
+
+Create or update `.env.local` with your Vercel AI Gateway API key:
+
+```bash
+# Vercel AI Gateway API Key (Required)
+VITE_AI_GATEWAY_API_KEY=your-vercel-ai-gateway-key
 ```
-https://gateway.ai.cloudflare.com/v1/<account_id>/<gateway_name>/google-ai-studio/v1beta
+
+**Note**: You do NOT need a separate Google AI API key. The Vercel AI Gateway handles authentication with Google AI Studio.
+
+### 3. Start Both Servers
+
+Run both the frontend and backend together:
+
+```bash
+# Start both servers with concurrently (recommended)
+npm run dev:all
+
+# Or start them separately in different terminals:
+# Terminal 1 - Frontend (port 5173/3000)
+npm run dev
+
+# Terminal 2 - Backend API (port 3001)
+npm run dev:server
 ```
 
-Replace:
-- `<account_id>`: Your Cloudflare/Vercel account ID
-- `<gateway_name>`: Your chosen gateway name
+**Note**: `npm run dev:all` uses `concurrently` to run both servers in a single terminal window.
 
-### 4. Testing the Setup
+### 4. Vercel AI Gateway Benefits
 
-1. Start the development server:
-   ```bash
-   npm run dev
-   ```
+Vercel AI Gateway provides:
+- **Request caching**: Reduce API calls and improve response times
+- **Rate limiting**: Automatic throttling to prevent quota exhaustion
+- **Analytics and monitoring**: Track AI usage and performance
+- **Cost optimization**: Caching reduces billable API calls
+- **Simplified authentication**: One API key instead of managing multiple provider keys
+- **No CORS issues**: Server-side usage eliminates browser security restrictions
 
-2. Open the application in your browser
+### 5. Testing the Setup
+
+1. Ensure both servers are running (frontend on port 5173, backend on port 3001)
+
+2. Open the application in your browser at http://localhost:5173
 
 3. Click the **AI chat icon** in the header
 
 4. Send a test message like "Hello, can you help me?"
 
 5. If configured correctly, you should receive an AI-powered response
+
+6. Check the browser console and backend server logs for any errors
 
 ## AI Features
 
@@ -160,88 +173,85 @@ maxTokens: 1500, // Default for transformations
 
 ### "AI features are currently unavailable"
 
-**Cause**: API key not configured or invalid
+**Cause**: Vercel AI Gateway API key not configured or invalid
 
 **Solution**:
-1. Verify `VITE_GOOGLE_GENERATIVE_AI_API_KEY` is set in `.env.local`
-2. Check that the API key is valid and active
-3. Restart the development server after updating `.env.local`
+1. Verify `VITE_AI_GATEWAY_API_KEY` is set in `.env.local`
+2. Check that the API key is valid and starts with `vck_`
+3. Ensure your Vercel AI Gateway is configured for Google AI Studio
+4. Restart the development server after updating `.env.local`
 
 ### "AI transformation failed"
 
-**Cause**: API quota exceeded or network issues
+**Cause**: API quota exceeded, network issues, or gateway misconfiguration
 
 **Solution**:
-1. Check your Google AI Studio quota
+1. Check your Vercel AI Gateway dashboard for quota and usage
 2. Verify network connectivity
 3. Check browser console for detailed error messages
-4. Content will fall back to template-based generation
-
-### Gateway URL errors
-
-**Cause**: Incorrect gateway URL format
-
-**Solution**:
-1. Verify the gateway URL format matches the pattern
-2. Ensure all placeholders are replaced with actual values
-3. Test without gateway URL first (comment it out temporarily)
+4. Ensure your gateway is properly configured for Google AI Studio
+5. Content will fall back to template-based generation if AI fails
 
 ### Rate limiting
 
 **Cause**: Too many API requests
 
 **Solution**:
-1. Implement Vercel AI Gateway for caching
-2. Add request throttling in your code
-3. Upgrade your Google AI API tier
+1. Vercel AI Gateway automatically handles rate limiting and caching
+2. Monitor your usage in the Vercel AI Gateway dashboard
+3. Adjust your gateway configuration if needed
+4. Upgrade your Vercel plan for higher limits if required
 
 ## Best Practices
 
-1. **Use AI Gateway in production** for better performance and cost control
-2. **Set appropriate token limits** to manage costs
-3. **Implement error handling** for graceful degradation
-4. **Monitor API usage** in Google AI Studio dashboard
-5. **Cache frequently requested content** to reduce API calls
-6. **Use lower temperature** (0.5-0.7) for consistent results
-7. **Use higher temperature** (0.8-0.9) for creative content
+1. **Use Vercel AI Gateway** for all AI features (better performance, cost control, and caching)
+2. **Set appropriate token limits** to manage costs and response times
+3. **Implement error handling** for graceful degradation to template-based content
+4. **Monitor API usage** in Vercel AI Gateway dashboard
+5. **Leverage automatic caching** provided by the gateway
+6. **Use lower temperature** (0.5-0.7) for consistent, focused results
+7. **Use higher temperature** (0.8-0.9) for creative, varied content
 
 ## Cost Optimization
 
-### Free Tier Limits
+### Gateway Benefits
 
-Google Gemini free tier includes:
-- 60 requests per minute
-- 1,500 requests per day
-- Rate limits may vary by model
+Vercel AI Gateway provides automatic cost optimization through:
+- **Request caching**: Reduces duplicate API calls
+- **Rate limiting**: Prevents quota exhaustion
+- **Usage analytics**: Track and optimize spending
+- **Unified billing**: Single invoice for all AI providers
 
 ### Reducing Costs
 
-1. **Use Flash models** instead of Pro for routine tasks
-2. **Implement caching** with Vercel AI Gateway
-3. **Set reasonable maxTokens** limits
-4. **Use template fallbacks** when AI is not critical
-5. **Monitor usage** regularly
+1. **Leverage gateway caching** for frequently requested content
+2. **Set reasonable maxTokens** limits (500 for chat, 1500 for transformations)
+3. **Use template fallbacks** when AI is not critical
+4. **Monitor usage** regularly in Vercel dashboard
+5. **Optimize prompts** to reduce token usage
 
 ## Security
 
 ### API Key Protection
 
 - **Never commit** API keys to version control
-- **Use environment variables** for all sensitive data
+- **Use environment variables** (with `VITE_` prefix for Vite apps) for all sensitive data
 - **Rotate keys regularly** for production apps
-- **Use different keys** for dev/staging/prod
+- **Use different gateway keys** for dev/staging/prod environments
 
 ### User Data
 
-- AI requests may include user content
+- AI requests go through Vercel AI Gateway before reaching Google AI
+- Review [Vercel AI Gateway Privacy](https://vercel.com/docs/ai-gateway/privacy)
 - Review [Google AI Studio Terms](https://ai.google.dev/terms)
-- Consider implementing server-side proxy for sensitive data
+- Consider implementing server-side proxy for highly sensitive data
 
 ## Additional Resources
 
 - [Vercel AI SDK Documentation](https://sdk.vercel.ai/docs)
-- [Google AI Studio](https://aistudio.google.com/)
 - [Vercel AI Gateway Docs](https://vercel.com/docs/ai-gateway)
+- [Vercel AI Gateway Dashboard](https://vercel.com/dashboard) (AI → Gateway)
+- [Google Gemini Models](https://ai.google.dev/gemini-api/docs/models)
 - [Gemini API Documentation](https://ai.google.dev/docs)
 
 ## Support
