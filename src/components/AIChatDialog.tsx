@@ -9,7 +9,7 @@ import {
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import { ScrollArea } from "./ui/scroll-area";
-import { Sparkles, Send, X, Loader2 } from "lucide-react";
+import { Sparkles, Send, Loader2 } from "lucide-react";
 import { Avatar, AvatarFallback } from "./ui/avatar";
 import { cn } from "./ui/utils";
 import { generateChatResponse } from "../utils/aiService";
@@ -121,11 +121,6 @@ export function AIChatDialog({
     }
   };
 
-  const handleClear = () => {
-    setMessages([]);
-    setInput("");
-  };
-
   const handleExampleClick = (example: string) => {
     setInput(example);
   };
@@ -141,26 +136,16 @@ export function AIChatDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl h-[85vh] max-h-[700px] flex flex-col p-0 gap-0">
         <DialogHeader className="px-6 py-4 border-b border-border/50 bg-gradient-to-r from-emerald-500/10 to-teal-600/10">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
-                <Sparkles className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <DialogTitle>Ask PubHub</DialogTitle>
-                <DialogDescription>
-                  Your AI-powered content assistant
-                </DialogDescription>
-              </div>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+              <Sparkles className="w-5 h-5 text-white" />
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleClear}
-              className="h-8 w-8"
-            >
-              <X className="w-4 h-4" />
-            </Button>
+            <div>
+              <DialogTitle>Ask PubHub</DialogTitle>
+              <DialogDescription>
+                Your AI-powered content assistant
+              </DialogDescription>
+            </div>
           </div>
         </DialogHeader>
 

@@ -1,25 +1,32 @@
-// AI API endpoint using Vercel AI Gateway (server-side)
+// AI API endpoint using Azure OpenAI (server-side)
 import { Hono } from 'hono';
 import { generateText } from 'ai';
-import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { createAzure } from '@ai-sdk/azure';
 
 const app = new Hono();
 
-// Configure Google Gemini through Vercel AI Gateway
+// Configure Azure OpenAI
 const getAIModel = () => {
-  const gatewayKey = process.env.VITE_AI_GATEWAY_API_KEY;
+  const apiKey = process.env.AZURE_API_KEY;
+  const endpoint = process.env.AZURE_ENDPOINT;
 
-  if (!gatewayKey) {
-    throw new Error('Vercel AI Gateway API key not configured');
+  if (!apiKey || !endpoint) {
+    throw new Error('Azure OpenAI API key or endpoint not configured');
   }
 
-  // Create Google provider with Vercel AI Gateway
-  const google = createGoogleGenerativeAI({
-    apiKey: gatewayKey,
-    baseURL: 'https://ai-gateway.vercel.sh/v1/providers/google',
+  // Extract resource name from endpoint
+  // Format: https://RESOURCE_NAME.openai.azure.com/...
+  const resourceMatch = endpoint.match(/https:\/\/([^.]+)\./);
+  const resourceName = resourceMatch ? resourceMatch[1] : '';
+
+  // Create Azure OpenAI provider
+  const azure = createAzure({
+    resourceName,
+    apiKey,
   });
 
-  return google('gemini-2.5-flash-lite-preview-09-2025');
+  // Using GPT-5-mini deployment
+  return azure('gpt-5-mini');
 };
 
 const SYSTEM_PROMPT = `You are PubHub AI, a helpful content creation assistant for social media creators.

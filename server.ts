@@ -1,6 +1,9 @@
 // Backend API server using Hono
-import 'dotenv/config';
+import { config } from 'dotenv';
 import { Hono } from 'hono';
+
+// Load .env.local for environment variables
+config({ path: '.env.local' });
 import { cors } from 'hono/cors';
 import { serve } from '@hono/node-server';
 import aiRoutes from './api/ai';

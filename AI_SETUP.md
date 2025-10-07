@@ -1,44 +1,48 @@
 # AI Features Setup Guide
 
-PubHub uses **Google Gemini 2.5 Flash-Lite** via **Vercel AI Gateway** for AI-powered features including chat assistance and content transformation.
+PubHub uses **Azure OpenAI with GPT-5-mini** for AI-powered features including chat assistance and content transformation.
 
 ## Prerequisites
 
-1. **Vercel AI Gateway API Key**: Get your API key from [Vercel Dashboard](https://vercel.com/dashboard)
+1. **Azure OpenAI Service**: An Azure subscription with OpenAI service enabled
+2. **Deployed Model**: GPT-5-mini deployment in your Azure OpenAI resource
 
 ## Architecture
 
 PubHub uses a **client-server architecture** for AI features:
 - **Frontend (Vite/React)**: Makes requests to backend API
-- **Backend API (Hono)**: Handles AI requests using Vercel AI Gateway
-- **Vercel AI Gateway**: Proxies requests to Google Gemini with caching and optimization
+- **Backend API (Hono)**: Handles AI requests using Azure OpenAI SDK
+- **Azure OpenAI**: Provides GPT-5-mini model for AI features
 
 This architecture ensures:
 - Secure API key management (keys never exposed to browser)
-- No CORS issues with AI Gateway
-- Better caching and rate limiting
+- No CORS issues with Azure OpenAI
+- Enterprise-grade reliability and performance
 - Simplified authentication
 
 ## Setup Steps
 
-### 1. Get Vercel AI Gateway API Key
+### 1. Set Up Azure OpenAI
 
-1. Go to [Vercel Dashboard](https://vercel.com/dashboard)
-2. Navigate to **AI** → **Gateway**
-3. Create a new gateway or use an existing one
-4. Configure it for **Google AI Studio**
-5. Copy the gateway API key (starts with `vck_`)
+1. Go to [Azure Portal](https://portal.azure.com)
+2. Create an **Azure OpenAI** resource (if you don't have one)
+3. Navigate to your Azure OpenAI resource
+4. Go to **Keys and Endpoint** section
+5. Copy your **API Key** and **Endpoint URL**
+6. Go to **Model deployments**
+7. Deploy the **gpt-5-mini** model (note the deployment name)
 
 ### 2. Configure Environment Variables
 
-Create or update `.env.local` with your Vercel AI Gateway API key:
+Create or update `.env.local` with your Azure OpenAI credentials:
 
 ```bash
-# Vercel AI Gateway API Key (Required)
-VITE_AI_GATEWAY_API_KEY=your-vercel-ai-gateway-key
+# Azure OpenAI Configuration (Required)
+AZURE_ENDPOINT=https://your-resource-name.openai.azure.com/openai/deployments/gpt-5-mini/chat/completions?api-version=2024-08-01-preview
+AZURE_API_KEY=your-azure-api-key
 ```
 
-**Note**: You do NOT need a separate Google AI API key. The Vercel AI Gateway handles authentication with Google AI Studio.
+**Note**: Replace `your-resource-name` with your actual Azure OpenAI resource name and use your actual API key.
 
 ### 3. Start Both Servers
 
@@ -58,14 +62,14 @@ npm run dev:server
 
 **Note**: `npm run dev:all` uses `concurrently` to run both servers in a single terminal window.
 
-### 4. Vercel AI Gateway Benefits
+### 4. Azure OpenAI Benefits
 
-Vercel AI Gateway provides:
-- **Request caching**: Reduce API calls and improve response times
-- **Rate limiting**: Automatic throttling to prevent quota exhaustion
-- **Analytics and monitoring**: Track AI usage and performance
-- **Cost optimization**: Caching reduces billable API calls
-- **Simplified authentication**: One API key instead of managing multiple provider keys
+Azure OpenAI provides:
+- **Enterprise-grade reliability**: 99.9% SLA for production workloads
+- **Security and compliance**: SOC 2, HIPAA, and other compliance certifications
+- **Data privacy**: Your data stays in your Azure region and is not used for training
+- **Scalability**: Auto-scaling to handle varying workloads
+- **Advanced models**: Access to latest GPT models including GPT-5-mini
 - **No CORS issues**: Server-side usage eliminates browser security restrictions
 
 ### 5. Testing the Setup
@@ -173,62 +177,61 @@ maxTokens: 1500, // Default for transformations
 
 ### "AI features are currently unavailable"
 
-**Cause**: Vercel AI Gateway API key not configured or invalid
+**Cause**: Azure OpenAI credentials not configured or invalid
 
 **Solution**:
-1. Verify `VITE_AI_GATEWAY_API_KEY` is set in `.env.local`
-2. Check that the API key is valid and starts with `vck_`
-3. Ensure your Vercel AI Gateway is configured for Google AI Studio
-4. Restart the development server after updating `.env.local`
+1. Verify `AZURE_ENDPOINT` and `AZURE_API_KEY` are set in `.env.local`
+2. Check that the API key is valid from your Azure OpenAI resource
+3. Ensure your Azure OpenAI resource has the gpt-5-mini model deployed
+4. Restart the backend server (`npm run dev:server`) after updating `.env.local`
 
 ### "AI transformation failed"
 
-**Cause**: API quota exceeded, network issues, or gateway misconfiguration
+**Cause**: API quota exceeded, network issues, or Azure configuration
 
 **Solution**:
-1. Check your Vercel AI Gateway dashboard for quota and usage
-2. Verify network connectivity
-3. Check browser console for detailed error messages
-4. Ensure your gateway is properly configured for Google AI Studio
+1. Check your Azure OpenAI quota in the Azure Portal
+2. Verify network connectivity to Azure
+3. Check browser console and backend server logs for detailed error messages
+4. Ensure your deployment name matches `gpt-5-mini`
 5. Content will fall back to template-based generation if AI fails
 
 ### Rate limiting
 
-**Cause**: Too many API requests
+**Cause**: Too many API requests exceeding Azure quota
 
 **Solution**:
-1. Vercel AI Gateway automatically handles rate limiting and caching
-2. Monitor your usage in the Vercel AI Gateway dashboard
-3. Adjust your gateway configuration if needed
-4. Upgrade your Vercel plan for higher limits if required
+1. Check your Azure OpenAI quota limits in the Azure Portal
+2. Monitor usage in Azure Monitor or Application Insights
+3. Request quota increase from Azure Support if needed
+4. Implement client-side request throttling if necessary
 
 ## Best Practices
 
-1. **Use Vercel AI Gateway** for all AI features (better performance, cost control, and caching)
-2. **Set appropriate token limits** to manage costs and response times
+1. **Monitor Azure costs** regularly in the Azure Portal to avoid unexpected charges
+2. **Set appropriate response parameters** to manage costs and response times
 3. **Implement error handling** for graceful degradation to template-based content
-4. **Monitor API usage** in Vercel AI Gateway dashboard
-5. **Leverage automatic caching** provided by the gateway
-6. **Use lower temperature** (0.5-0.7) for consistent, focused results
-7. **Use higher temperature** (0.8-0.9) for creative, varied content
+4. **Monitor API usage** in Azure Monitor
+5. **Use temperature wisely**: 0.5-0.7 for consistent results, 0.8-0.9 for creative content
+6. **Enable Application Insights** for detailed logging and diagnostics
+7. **Set up alerts** for quota limits and unusual usage patterns
 
 ## Cost Optimization
 
-### Gateway Benefits
+### Azure OpenAI Pricing
 
-Vercel AI Gateway provides automatic cost optimization through:
-- **Request caching**: Reduces duplicate API calls
-- **Rate limiting**: Prevents quota exhaustion
-- **Usage analytics**: Track and optimize spending
-- **Unified billing**: Single invoice for all AI providers
+Azure OpenAI charges based on:
+- **Token usage**: Per 1000 tokens (input and output)
+- **Model tier**: GPT-5-mini is cost-effective for most use cases
+- **Data processing**: Data in/out charges apply
 
 ### Reducing Costs
 
-1. **Leverage gateway caching** for frequently requested content
-2. **Set reasonable maxTokens** limits (500 for chat, 1500 for transformations)
+1. **Monitor token usage** in Azure Cost Management
+2. **Optimize prompts** to reduce unnecessary tokens
 3. **Use template fallbacks** when AI is not critical
-4. **Monitor usage** regularly in Vercel dashboard
-5. **Optimize prompts** to reduce token usage
+4. **Set quota limits** in Azure to prevent runaway costs
+5. **Implement caching** on the backend for repeated requests
 
 ## Security
 
