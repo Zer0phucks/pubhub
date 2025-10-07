@@ -670,10 +670,13 @@ CREATE INDEX idx_media_user_platform ON media_library(user_id, platform);
 - `DELETE /api/notifications/clear-all` - Clear all notifications
 
 ### AI Assistant
-- `POST /api/ai/chat` - Send message to AI assistant
-- `POST /api/ai/suggest-content` - Get content suggestions
-- `POST /api/ai/optimize` - Optimize content for platform
-- `POST /api/ai/transform` - Transform content between platforms
+- AI features are now client-side using Vercel AI SDK with Google Gemini 2.5 Flash-Lite
+- No backend API endpoints needed for basic AI features
+- Optional: Implement server-side endpoints for additional security/control
+  - `POST /api/ai/chat` - Send message to AI assistant (server-side proxy)
+  - `POST /api/ai/suggest-content` - Get content suggestions
+  - `POST /api/ai/optimize` - Optimize content for platform
+  - `POST /api/ai/transform` - Transform content between platforms
 
 ---
 
@@ -1061,8 +1064,9 @@ PINTEREST_APP_SECRET=
 REDDIT_CLIENT_ID=
 REDDIT_CLIENT_SECRET=
 
-# AI
-OPENAI_API_KEY=your-openai-key
+# AI - Vercel AI Gateway with Google Gemini
+VITE_AI_GATEWAY_URL=https://gateway.ai.cloudflare.com/v1/<account_id>/<gateway_name>/google-ai-studio/v1beta
+VITE_GOOGLE_GENERATIVE_AI_API_KEY=your-google-api-key
 
 # App
 APP_URL=https://your-app.vercel.app

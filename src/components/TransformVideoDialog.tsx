@@ -113,9 +113,9 @@ const transformOptions: TransformOption[] = [
 export function TransformVideoDialog({ open, onOpenChange, video, onTransform }: TransformVideoDialogProps) {
   if (!video) return null;
 
-  const handleTransform = (optionId: string) => {
+  const handleTransform = async (optionId: string) => {
     const option = transformOptions.find(o => o.id === optionId);
-    
+
     if (option?.requiresTranscript && !video.hasTranscript) {
       toast.error("Transcript Required", {
         description: "This transformation requires a video transcript. Transcripts are available for YouTube videos.",
@@ -124,38 +124,35 @@ export function TransformVideoDialog({ open, onOpenChange, video, onTransform }:
     }
 
     // Show loading toast
-    toast.loading(`Transforming Content`, {
-      description: `Creating ${option?.title} from "${video.title}"...`,
+    const loadingToastId = toast.loading(`Transforming Content`, {
+      description: `Creating ${option?.title} from "${video.title}" using AI...`,
     });
 
-    // Simulate processing time
-    setTimeout(() => {
-      try {
-        // Transform the video content
-        const transformedContent = transformVideoContent(video, optionId);
-        
-        // Dismiss loading toast
-        toast.dismiss();
-        
-        // Show success toast
-        toast.success("Transformation Complete", {
-          description: "Your content is ready in the composer!",
-        });
+    try {
+      // Transform the video content using AI
+      const transformedContent = await transformVideoContent(video, optionId);
 
-        // Pass the transformed content back to parent
-        if (onTransform) {
-          onTransform(transformedContent);
-        }
+      // Dismiss loading toast
+      toast.dismiss(loadingToastId);
 
-        // Close the dialog
-        onOpenChange(false);
-      } catch (error) {
-        toast.dismiss();
-        toast.error("Transformation Failed", {
-          description: error instanceof Error ? error.message : "An error occurred during transformation.",
-        });
+      // Show success toast
+      toast.success("Transformation Complete", {
+        description: "Your AI-generated content is ready in the composer!",
+      });
+
+      // Pass the transformed content back to parent
+      if (onTransform) {
+        onTransform(transformedContent);
       }
-    }, 1500);
+
+      // Close the dialog
+      onOpenChange(false);
+    } catch (error) {
+      toast.dismiss(loadingToastId);
+      toast.error("Transformation Failed", {
+        description: error instanceof Error ? error.message : "An error occurred during transformation.",
+      });
+    }
   };
 
   return (

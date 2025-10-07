@@ -21,6 +21,7 @@ A powerful, modern dashboard for content creators to manage, schedule, and publi
 - **Backend**: Supabase (PostgreSQL, Auth, Storage)
 - **Hosting**: Vercel
 - **Background Jobs**: Inngest
+- **AI**: Vercel AI SDK with Google Gemini 2.5 Flash-Lite via AI Gateway
 - **Charts**: Recharts
 - **State Management**: React Hooks
 
@@ -86,8 +87,9 @@ INSTAGRAM_CLIENT_ID=
 YOUTUBE_CLIENT_ID=
 # ... etc
 
-# AI Features (Optional)
-OPENAI_API_KEY=
+# AI Features - Vercel AI Gateway with Google Gemini (Optional)
+VITE_AI_GATEWAY_URL=https://gateway.ai.cloudflare.com/v1/<account_id>/<gateway_name>/google-ai-studio/v1beta
+VITE_GOOGLE_GENERATIVE_AI_API_KEY=your-google-api-key
 ```
 
 See `.env.example` for complete list.

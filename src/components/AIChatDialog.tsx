@@ -12,6 +12,7 @@ import { ScrollArea } from "./ui/scroll-area";
 import { Sparkles, Send, X, Loader2 } from "lucide-react";
 import { Avatar, AvatarFallback } from "./ui/avatar";
 import { cn } from "./ui/utils";
+import { generateChatResponse } from "../utils/aiService";
 
 type View = "dashboard" | "compose" | "inbox" | "calendar" | "ai" | "connections";
 type Platform = "twitter" | "instagram" | "linkedin" | "facebook" | "youtube" | "tiktok" | "pinterest" | "reddit" | "blog";
@@ -83,18 +84,41 @@ export function AIChatDialog({
     setInput("");
     setIsLoading(true);
 
-    // Simulate AI response (in production, this would call your AI backend)
-    setTimeout(() => {
-      const aiResponse = generateAIResponse(userMessage.content, currentView, selectedPlatform);
+    try {
+      // Call real AI service with Gemini via Vercel AI Gateway
+      const conversationHistory = messages.map(m => ({
+        role: m.role,
+        content: m.content,
+      }));
+
+      const aiResponse = await generateChatResponse(
+        [...conversationHistory, { role: "user", content: userMessage.content }],
+        {
+          currentView,
+          platform: selectedPlatform,
+        }
+      );
+
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
         content: aiResponse,
         timestamp: new Date(),
       };
+
       setMessages((prev) => [...prev, assistantMessage]);
+    } catch (error) {
+      console.error("AI chat error:", error);
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: "I'm having trouble processing that request. Please try again.",
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
       setIsLoading(false);
-    }, 1000 + Math.random() * 1000);
+    }
   };
 
   const handleClear = () => {
@@ -252,43 +276,5 @@ export function AIChatDialog({
   );
 }
 
-// Simulated AI response generator (replace with real API call)
-function generateAIResponse(query: string, currentView: View, platform: Platform): string {
-  const lowercaseQuery = query.toLowerCase();
-
-  // Context-aware responses based on current view
-  if (lowercaseQuery.includes("post") && lowercaseQuery.includes("composting")) {
-    return `Based on your content history, your last post about composting was 12 days ago on Instagram. It received 342 likes and 28 comments. Would you like me to help you create a new composting-related post?`;
-  }
-
-  if (lowercaseQuery.includes("engagement") || lowercaseQuery.includes("analytics")) {
-    return `Your average engagement rate across all platforms this month is 4.8%, which is 0.7% higher than last month. Twitter is performing best at 6.2%, followed by Instagram at 5.1%. Would you like a detailed breakdown by platform?`;
-  }
-
-  if (lowercaseQuery.includes("schedule") || lowercaseQuery.includes("when")) {
-    return `Based on your audience analytics, the best times to post this week are:\n\n• Twitter: 9 AM and 5 PM EST\n• Instagram: 11 AM and 7 PM EST\n• LinkedIn: 8 AM and 12 PM EST\n\nWould you like me to schedule a post for one of these optimal times?`;
-  }
-
-  if (lowercaseQuery.includes("idea") || lowercaseQuery.includes("content")) {
-    return `Here are 3 content ideas based on your recent performance:\n\n1. "5 Sustainability Hacks" - Tutorial style (similar posts got 450+ likes)\n2. Behind-the-scenes of your composting setup (visual content performs 40% better)\n3. Q&A about common composting mistakes (engagement-heavy format)\n\nWhich one interests you?`;
-  }
-
-  if (lowercaseQuery.includes("hashtag")) {
-    return `For ${platform} posts about sustainability, I recommend:\n\n#SustainableLiving #EcoFriendly #ZeroWaste #GreenLiving #Composting\n\nThese hashtags have generated 35% more reach in your previous posts. Want me to add them to your next post?`;
-  }
-
-  if (currentView === "compose") {
-    return `I see you're working on creating content. I can help you with:\n\n• Generating post ideas\n• Suggesting optimal posting times\n• Creating engaging captions\n• Recommending hashtags\n• Checking content performance predictions\n\nWhat would you like help with?`;
-  }
-
-  if (currentView === "calendar") {
-    return `Your content calendar shows you have 8 posts scheduled for this week. You're posting most frequently on Monday and Wednesday. I notice a gap on Friday - would you like me to suggest content to fill that slot?`;
-  }
-
-  if (currentView === "inbox") {
-    return `You have 15 unread messages across all platforms. 3 of them mention potential collaboration opportunities. Would you like me to help you draft responses or prioritize which ones to respond to first?`;
-  }
-
-  // Default helpful response
-  return `I'm here to help! I can assist you with:\n\n• Finding specific posts and content\n• Analyzing your performance metrics\n• Suggesting content ideas and hashtags\n• Scheduling posts at optimal times\n• Answering questions about your audience\n• Drafting engaging captions\n\nWhat would you like to know more about?`;
-}
+// Note: AI responses are now powered by Google Gemini 2.5 Flash-Lite via Vercel AI Gateway
+// The generateChatResponse function handles all AI interactions

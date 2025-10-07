@@ -1,4 +1,6 @@
 // Content transformation utilities for converting video content to other formats
+// Now powered by Google Gemini 2.5 Flash-Lite via Vercel AI Gateway
+import { transformContent as aiTransformContent } from './aiService';
 
 interface Video {
   id: string;
@@ -375,13 +377,49 @@ ${captions.facebook}`;
 };
 
 // Main transformation function
-export const transformVideoContent = (
+export const transformVideoContent = async (
   video: Video,
   transformationType: string,
-  customInstructions?: string
-): TransformedContent => {
+  customInstructions?: string,
+  useAI: boolean = true
+): Promise<TransformedContent> => {
+  // If AI is enabled and available, use AI-powered transformation
+  if (useAI) {
+    try {
+      const sourceContent = `Title: ${video.title}
+Description: ${video.description}
+Platform: ${video.platform}
+Views: ${video.views.toLocaleString()}
+Likes: ${video.likes.toLocaleString()}
+Duration: ${video.duration}
+Published: ${new Date(video.publishedAt).toLocaleDateString()}`;
+
+      const aiContent = await aiTransformContent(
+        sourceContent,
+        transformationType,
+        customInstructions
+      );
+
+      return {
+        type: transformationType,
+        content: aiContent,
+        platforms: getPlatformsForType(transformationType),
+        title: transformationType === 'blog' ? video.title : undefined,
+        sourceVideo: {
+          title: video.title,
+          platform: video.platform,
+          url: `https://${video.platform}.com/watch?v=${video.id}`,
+        },
+      };
+    } catch (error) {
+      console.warn('AI transformation failed, falling back to template-based:', error);
+      // Fall through to template-based transformation
+    }
+  }
+
+  // Fallback to template-based transformation
   let result: TransformedContent;
-  
+
   switch (transformationType) {
     case 'blog':
       result = transformToBlogPost(video);
@@ -412,6 +450,19 @@ export const transformVideoContent = (
 
   return result;
 };
+
+// Helper function to get platforms for transformation type
+function getPlatformsForType(transformationType: string): string[] {
+  const platformMap: Record<string, string[]> = {
+    'blog': ['blog'],
+    'social-thread': ['twitter'],
+    'linkedin-post': ['linkedin'],
+    'social-announcement': ['twitter', 'linkedin', 'facebook', 'instagram'],
+    'newsletter': ['blog'],
+    'captions': ['instagram', 'tiktok', 'facebook'],
+  };
+  return platformMap[transformationType] || [];
+}
 
 // Apply custom instructions to the generated content
 const applyCustomInstructions = (
