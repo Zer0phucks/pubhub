@@ -122,7 +122,7 @@ Format: Return a numbered list.`;
       model,
       prompt,
       temperature: 0.9,
-      maxTokens: 400,
+      maxRetries: 2,
     });
 
     // Parse the response into an array
@@ -163,7 +163,7 @@ app.post('/optimize', async (c) => {
       model,
       prompt,
       temperature: 0.7,
-      maxTokens: 500,
+      maxRetries: 2,
     });
 
     return c.json({ optimizedContent: result.text });
