@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { PubHubLogo } from '../PubHubLogo';
+import { API_URL } from '@/config/env';
 
 export function AuthCallback() {
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +29,7 @@ export function AuthCallback() {
       }
 
       try {
-        const response = await fetch(`http://localhost:3001/api/auth/callback?code=${code}`);
+        const response = await fetch(`${API_URL}/api/auth/callback?code=${code}`);
         const data = await response.json();
 
         if (!response.ok) {

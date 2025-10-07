@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
+import { API_URL } from '@/config/env';
 
 interface SignupFormProps {
   onSuccess?: () => void;
@@ -36,7 +37,7 @@ export function SignupForm({ onSuccess, onSwitchToLogin }: SignupFormProps) {
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:3001/api/auth/signup', {
+      const response = await fetch(`${API_URL}/api/auth/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, displayName }),
@@ -66,7 +67,7 @@ export function SignupForm({ onSuccess, onSwitchToLogin }: SignupFormProps) {
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:3001/api/auth/google');
+      const response = await fetch(`${API_URL}/api/auth/google`);
       const data = await response.json();
 
       if (!response.ok) {
