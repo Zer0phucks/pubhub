@@ -52,6 +52,7 @@ import { TransformedContent } from "./utils/contentTransformer";
 import { useAuth } from "./contexts/AuthContext";
 import { AuthPage } from "./components/Auth/AuthPage";
 import { AuthCallback } from "./components/Auth/AuthCallback";
+import { LandingPage } from "./components/LandingPage";
 
 type View = "home" | "compose" | "inbox" | "calendar" | "analytics" | "library" | "notifications" | "settings";
 type Platform = "all" | "twitter" | "instagram" | "linkedin" | "facebook" | "youtube" | "tiktok" | "pinterest" | "reddit" | "blog";
@@ -59,6 +60,7 @@ type InboxView = "all" | "unread" | "comments" | "messages";
 
 export default function App() {
   const { user, loading } = useAuth();
+  const [showAuthPage, setShowAuthPage] = useState(false);
   const [currentView, setCurrentView] = useState<View>("home");
   const [selectedPlatform, setSelectedPlatform] = useState<Platform>("all");
   const [inboxView, setInboxView] = useState<InboxView>("unread");
@@ -257,7 +259,10 @@ export default function App() {
   }
 
   if (!user) {
-    return <AuthPage onAuthenticated={() => window.location.reload()} />;
+    if (showAuthPage) {
+      return <AuthPage onAuthenticated={() => window.location.reload()} />;
+    }
+    return <LandingPage onGetStarted={() => setShowAuthPage(true)} />;
   }
 
   return (
