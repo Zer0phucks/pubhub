@@ -15,9 +15,11 @@ export function DemoModeToggle({ projectId, onUpdate }: DemoModeToggleProps) {
   const addDemoData = async () => {
     setLoading(true);
     try {
-      // Create some demo feed items
+      // Add demo feed items by creating them directly via API
       const demoItems = [
         {
+          id: crypto.randomUUID(),
+          projectId,
           type: 'post',
           subreddit: 'webdev',
           title: 'Looking for a better way to manage my app projects',
@@ -26,8 +28,15 @@ export function DemoModeToggle({ projectId, onUpdate }: DemoModeToggleProps) {
           score: 42,
           num_comments: 15,
           url: 'https://reddit.com/r/webdev/demo1',
+          reddit_id: 'demo_' + Date.now() + '_1',
+          relevance_score: 75,
+          created_at: new Date().toISOString(),
+          ai_response: null,
+          status: 'pending',
         },
         {
+          id: crypto.randomUUID(),
+          projectId,
           type: 'post',
           subreddit: 'SaaS',
           title: 'What tools do you use for customer engagement?',
@@ -36,8 +45,15 @@ export function DemoModeToggle({ projectId, onUpdate }: DemoModeToggleProps) {
           score: 28,
           num_comments: 8,
           url: 'https://reddit.com/r/SaaS/demo2',
+          reddit_id: 'demo_' + Date.now() + '_2',
+          relevance_score: 85,
+          created_at: new Date().toISOString(),
+          ai_response: null,
+          status: 'pending',
         },
         {
+          id: crypto.randomUUID(),
+          projectId,
           type: 'post',
           subreddit: 'startups',
           title: 'How do you find your first users?',
@@ -46,19 +62,25 @@ export function DemoModeToggle({ projectId, onUpdate }: DemoModeToggleProps) {
           score: 67,
           num_comments: 23,
           url: 'https://reddit.com/r/startups/demo3',
+          reddit_id: 'demo_' + Date.now() + '_3',
+          relevance_score: 90,
+          created_at: new Date().toISOString(),
+          ai_response: null,
+          status: 'pending',
         },
       ];
 
-      // This would normally call the backend, but for demo purposes we'll simulate
-      toast.success('Demo feed items would be added here. In a real implementation, this would populate your feed with sample Reddit posts.');
-      
-      setTimeout(() => {
-        onUpdate();
-        setLoading(false);
-      }, 1000);
+      // Create feed items via API
+      for (const item of demoItems) {
+        await api.updateFeedItem(projectId, item.id, item);
+      }
+
+      toast.success('Added 3 demo feed items! These simulate Reddit posts that match your project.');
+      onUpdate();
     } catch (error) {
       console.error('Error adding demo data:', error);
       toast.error('Failed to add demo data');
+    } finally {
       setLoading(false);
     }
   };

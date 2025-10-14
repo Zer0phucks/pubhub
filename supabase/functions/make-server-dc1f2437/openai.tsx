@@ -33,11 +33,12 @@ export async function callAzureOpenAI(
 
   const requestBody = {
     messages: allMessages,
-    max_tokens: config.maxTokens || 800,
-    temperature: config.temperature || 0.7,
-    top_p: config.topP || 0.95,
-    frequency_penalty: config.frequencyPenalty || 0,
-    presence_penalty: config.presencePenalty || 0,
+    max_completion_tokens: config.maxTokens || 800,
+    // Note: gpt-5-mini only supports default temperature (1)
+    // temperature: config.temperature || 0.7,
+    // top_p: config.topP || 0.95,
+    // frequency_penalty: config.frequencyPenalty || 0,
+    // presence_penalty: config.presencePenalty || 0,
   };
 
   try {

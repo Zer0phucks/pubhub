@@ -5,6 +5,7 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 import * as kv from './kv_store.tsx';
 import * as reddit from './reddit.tsx';
 import * as openai from './openai.tsx';
+import * as openrouter from './openrouter.tsx';
 
 const app = new Hono();
 
@@ -410,7 +411,7 @@ app.delete('/make-server-dc1f2437/projects/:id', async (c) => {
   }
 });
 
-// Suggest Subreddits
+// Suggest Subreddits - Using OpenRouter with Perplexity Sonar
 app.post('/make-server-dc1f2437/suggest-subreddits', async (c) => {
   try {
     const user = await getAuthUser(c.req.raw);
@@ -420,18 +421,37 @@ app.post('/make-server-dc1f2437/suggest-subreddits', async (c) => {
 
     const { description, url } = await c.req.json();
 
-    const prompt = `Based on this app: "${description}" (${url || 'no URL provided'}), suggest 8-10 relevant subreddits where the developer could engage with potential users. Return ONLY a JSON array of subreddit names without the r/ prefix. Example: ["webdev", "SaaS", "startups"]`;
+    console.log('Suggesting subreddits for:', { description, url });
 
-    const response = await callAzureOpenAI([
-      { role: 'user', content: prompt }
-    ]);
+    const systemPrompt = 'You are a Reddit expert who helps app developers find relevant communities. Provide specific, active subreddit names where developers can authentically engage with potential users. Return ONLY a valid JSON array with no additional text or explanation.';
 
-    console.log('OpenAI raw response:', response);
+    const userPrompt = `Based on this app: "${description}"${url ? ` (${url})` : ''}, suggest 8-10 relevant subreddits where the developer could engage with potential users.
+
+Requirements:
+- Focus on active communities with engaged users
+- Include both niche and broader subreddits
+- Avoid overly promotional or spam-heavy communities
+- Consider where the target audience naturally discusses their problems
+
+Return ONLY a JSON array of subreddit names without the r/ prefix.
+Example format: ["webdev", "SaaS", "startups", "Entrepreneur", "smallbusiness"]`;
+
+    const response = await openrouter.callOpenRouter([
+      { role: 'user', content: userPrompt }
+    ], systemPrompt, { model: 'perplexity/sonar' });
+
+    console.log('OpenRouter raw response:', response);
 
     // Use safeJSONParse to handle markdown code blocks
-    const subreddits = openai.safeJSONParse(response, []);
-    
+    const subreddits = openrouter.safeJSONParse(response, []);
+
     console.log('Parsed subreddits:', subreddits);
+
+    if (!Array.isArray(subreddits) || subreddits.length === 0) {
+      console.error('Invalid subreddits format, returning empty array');
+      return c.json({ subreddits: [] });
+    }
+
     return c.json({ subreddits });
   } catch (error) {
     console.error(`Suggest subreddits error: ${error.message}`);
@@ -495,11 +515,8 @@ app.post('/make-server-dc1f2437/scan-history', async (c) => {
     }
 
     // Determine scan days based on tier
-    const scanDays = profile.tier === 'pro' ? 90 : profile.tier === 'basic' ? 30 : 0;
-    
-    if (scanDays === 0) {
-      return c.json({ error: 'Historical scanning not available on free tier' }, 403);
-    }
+    // Free: 1 day, Basic: 30 days, Pro: 90 days
+    const scanDays = profile.tier === 'pro' ? 90 : profile.tier === 'basic' ? 30 : 1;
 
     const keywords = reddit.extractKeywords(project.description);
     const feedItems: any[] = [];
