@@ -577,11 +577,45 @@ app.post('/make-server-dc1f2437/scan-history', async (c) => {
     const cutoffDate = Date.now() - (scanDays * 24 * 60 * 60 * 1000);
     console.log(`Cutoff date: ${new Date(cutoffDate).toISOString()}`);
 
+    // Get user's Reddit tokens
+    const userTokens = profile.reddit;
+    if (!userTokens) {
+      console.log('❌ User has not connected Reddit account');
+      return c.json({
+        error: 'Reddit account not connected. Please connect your Reddit account in settings.',
+        requiresRedditAuth: true
+      }, 403);
+    }
+
+    // Ensure token is valid (refresh if needed)
+    let accessToken: string;
+    try {
+      accessToken = await reddit.getUserToken(userTokens);
+
+      // If token was refreshed, update profile
+      if (accessToken !== userTokens.access_token) {
+        const newTokens = await reddit.refreshUserToken(userTokens.refresh_token);
+        profile.reddit = {
+          ...userTokens,
+          access_token: newTokens.access_token,
+          expires_at: newTokens.expires_at,
+        };
+        await kv.set(`user:${user.id}`, profile);
+        console.log('[Scan] Refreshed user Reddit token');
+      }
+    } catch (error) {
+      console.error('[Scan] Failed to get valid Reddit token:', error);
+      return c.json({
+        error: 'Failed to authenticate with Reddit. Please reconnect your account.',
+        requiresRedditAuth: true
+      }, 403);
+    }
+
     // Scan each subreddit
     for (const subreddit of subreddits) {
       try {
         console.log(`\n📡 Fetching posts from r/${subreddit}...`);
-        const { posts } = await reddit.getSubredditPosts(subreddit, 100);
+        const { posts } = await reddit.getSubredditPostsWithUserToken(accessToken, subreddit, 100);
         console.log(`Retrieved ${posts.length} posts from r/${subreddit}`);
 
         for (const postData of posts) {
@@ -736,13 +770,45 @@ app.post('/make-server-dc1f2437/monitor-subreddits', async (c) => {
     const keywords = reddit.extractKeywords(project.description);
     const newItems: any[] = [];
 
+    // Get user's Reddit tokens
+    const profile = await kv.get(`user:${user.id}`);
+    const userTokens = profile?.reddit;
+    if (!userTokens) {
+      return c.json({
+        error: 'Reddit account not connected. Please connect your Reddit account in settings.',
+        requiresRedditAuth: true
+      }, 403);
+    }
+
+    // Ensure token is valid (refresh if needed)
+    let accessToken: string;
+    try {
+      accessToken = await reddit.getUserToken(userTokens);
+
+      // If token was refreshed, update profile
+      if (accessToken !== userTokens.access_token) {
+        const newTokens = await reddit.refreshUserToken(userTokens.refresh_token);
+        profile.reddit = {
+          ...userTokens,
+          access_token: newTokens.access_token,
+          expires_at: newTokens.expires_at,
+        };
+        await kv.set(`user:${user.id}`, profile);
+      }
+    } catch (error) {
+      return c.json({
+        error: 'Failed to authenticate with Reddit. Please reconnect your account.',
+        requiresRedditAuth: true
+      }, 403);
+    }
+
     // Get the last scan timestamp for this project
     const lastScanKey = `last_scan:${projectId}`;
     const lastScan = await kv.get(lastScanKey) || { timestamp: Date.now() - 3600000 }; // Default to 1 hour ago
 
     for (const subreddit of subreddits) {
       try {
-        const { posts } = await reddit.getSubredditPosts(subreddit, 25);
+        const { posts } = await reddit.getSubredditPostsWithUserToken(accessToken, subreddit, 25);
 
         for (const postData of posts) {
           const postDate = postData.created_utc * 1000;
@@ -949,7 +1015,7 @@ app.patch('/make-server-dc1f2437/feed/:projectId/:itemId', async (c) => {
     const projectId = c.req.param('projectId');
     const itemId = c.req.param('itemId');
     const updates = await c.req.json();
-    
+
     const feedItem = await kv.get(`feed:${projectId}:${itemId}`);
     if (!feedItem) {
       return c.json({ error: 'Feed item not found' }, 404);
@@ -961,6 +1027,140 @@ app.patch('/make-server-dc1f2437/feed/:projectId/:itemId', async (c) => {
     return c.json(updated);
   } catch (error) {
     console.log(`Update feed item error: ${error.message}`);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// Reddit OAuth - Initiate Authentication
+app.get('/make-server-dc1f2437/reddit/auth', async (c) => {
+  try {
+    const user = await getAuthUser(c.req.raw);
+    if (!user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const clientId = Deno.env.get('REDDIT_CLIENT_ID');
+    if (!clientId) {
+      return c.json({ error: 'Reddit OAuth not configured' }, 500);
+    }
+
+    // Reddit OAuth URL
+    const redirectUri = `https://${Deno.env.get('SUPABASE_PROJECT_ID') || 'vcdfzxjlahsajulpxzsn'}.supabase.co/functions/v1/make-server-dc1f2437/reddit/callback`;
+    const state = user.id; // Use user ID as state for verification
+    const scope = 'identity read submit'; // Permissions: read user identity, read posts, submit comments
+
+    const authUrl = `https://www.reddit.com/api/v1/authorize?client_id=${clientId}&response_type=code&state=${state}&redirect_uri=${encodeURIComponent(redirectUri)}&duration=permanent&scope=${encodeURIComponent(scope)}`;
+
+    console.log('[Reddit][Auth] Generated OAuth URL', { userId: user.id, redirectUri });
+
+    return c.json({ authUrl });
+  } catch (error) {
+    console.error('[Reddit][Auth] Error:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// Reddit OAuth - Callback Handler
+app.get('/make-server-dc1f2437/reddit/callback', async (c) => {
+  try {
+    const code = c.req.query('code');
+    const state = c.req.query('state');
+    const error = c.req.query('error');
+
+    console.log('[Reddit][Callback] Received callback', { code: !!code, state, error });
+
+    if (error) {
+      console.error('[Reddit][Callback] OAuth error:', error);
+      return c.redirect(`${Deno.env.get('NEXT_PUBLIC_APP_URL') || 'https://pubhub.dev'}/?reddit_error=${error}`);
+    }
+
+    if (!code || !state) {
+      return c.json({ error: 'Missing code or state parameter' }, 400);
+    }
+
+    // Exchange code for tokens
+    const redirectUri = `https://${Deno.env.get('SUPABASE_PROJECT_ID') || 'vcdfzxjlahsajulpxzsn'}.supabase.co/functions/v1/make-server-dc1f2437/reddit/callback`;
+    const tokens = await reddit.exchangeCodeForToken(code, redirectUri);
+
+    // Get Reddit username
+    const identity = await reddit.getUserIdentity(tokens.access_token);
+
+    console.log('[Reddit][Callback] Successfully authenticated', {
+      userId: state,
+      redditUsername: identity.name,
+    });
+
+    // Store tokens in user profile
+    const profile = await kv.get(`user:${state}`);
+    if (!profile) {
+      return c.json({ error: 'User profile not found' }, 404);
+    }
+
+    profile.reddit = {
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
+      expires_at: tokens.expires_at,
+      scope: tokens.scope,
+      username: identity.name,
+      connected_at: new Date().toISOString(),
+    };
+
+    await kv.set(`user:${state}`, profile);
+
+    // Redirect back to home page with success
+    return c.redirect(`${Deno.env.get('NEXT_PUBLIC_APP_URL') || 'https://pubhub.dev'}/?reddit_connected=true`);
+  } catch (error) {
+    console.error('[Reddit][Callback] Error:', error);
+    return c.redirect(`${Deno.env.get('NEXT_PUBLIC_APP_URL') || 'https://pubhub.dev'}/?reddit_error=failed`);
+  }
+});
+
+// Reddit OAuth - Check Connection Status
+app.get('/make-server-dc1f2437/reddit/status', async (c) => {
+  try {
+    const user = await getAuthUser(c.req.raw);
+    if (!user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const profile = await kv.get(`user:${user.id}`);
+    if (!profile || !profile.reddit) {
+      return c.json({ connected: false });
+    }
+
+    return c.json({
+      connected: true,
+      username: profile.reddit.username,
+      connected_at: profile.reddit.connected_at,
+    });
+  } catch (error) {
+    console.error('[Reddit][Status] Error:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// Reddit OAuth - Disconnect Account
+app.post('/make-server-dc1f2437/reddit/disconnect', async (c) => {
+  try {
+    const user = await getAuthUser(c.req.raw);
+    if (!user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const profile = await kv.get(`user:${user.id}`);
+    if (!profile) {
+      return c.json({ error: 'Profile not found' }, 404);
+    }
+
+    // Remove Reddit credentials
+    delete profile.reddit;
+    await kv.set(`user:${user.id}`, profile);
+
+    console.log('[Reddit][Disconnect] Disconnected Reddit account', { userId: user.id });
+
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('[Reddit][Disconnect] Error:', error);
     return c.json({ error: error.message }, 500);
   }
 });

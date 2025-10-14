@@ -7,6 +7,13 @@ interface RedditCredentials {
   tokenExpiry?: number;
 }
 
+interface UserRedditTokens {
+  access_token: string;
+  refresh_token: string;
+  expires_at: number;
+  scope: string;
+}
+
 let redditToken: { token: string; expiry: number } | null = null;
 
 function createRequestId(scope: string): string {
@@ -395,4 +402,295 @@ export function formatRedditTimestamp(unixTimestamp: number): string {
 export function isValidSubredditName(name: string): boolean {
   // Subreddit names are 3-21 characters, alphanumeric + underscore
   return /^[a-zA-Z0-9_]{3,21}$/.test(name);
+}
+
+// ============================================================================
+// USER OAUTH FUNCTIONS
+// ============================================================================
+
+// Exchange authorization code for access token
+export async function exchangeCodeForToken(code: string, redirectUri: string): Promise<UserRedditTokens> {
+  const clientId = Deno.env.get('REDDIT_CLIENT_ID');
+  const clientSecret = Deno.env.get('REDDIT_CLIENT_SECRET');
+
+  if (!clientId || !clientSecret) {
+    throw new Error('Reddit API credentials not configured');
+  }
+
+  const auth = btoa(`${clientId}:${clientSecret}`);
+  const requestId = createRequestId('reddit-oauth');
+  const startTime = Date.now();
+
+  console.log('[Reddit][OAuth] Exchanging code for token', { requestId });
+
+  const response = await fetch('https://www.reddit.com/api/v1/access_token', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Basic ${auth}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'User-Agent': 'PubHub/1.0 (by /u/PubHubApp)',
+    },
+    body: new URLSearchParams({
+      grant_type: 'authorization_code',
+      code,
+      redirect_uri: redirectUri,
+    }).toString(),
+  });
+
+  const durationMs = Date.now() - startTime;
+  console.log('[Reddit][OAuth] Token exchange response', {
+    requestId,
+    status: response.status,
+    durationMs,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('[Reddit][OAuth] Token exchange failed', {
+      requestId,
+      status: response.status,
+      error: errorText,
+    });
+    throw new Error(`Failed to exchange code for token: ${response.status}`);
+  }
+
+  const data = await response.json();
+
+  return {
+    access_token: data.access_token,
+    refresh_token: data.refresh_token,
+    expires_at: Date.now() + (data.expires_in * 1000),
+    scope: data.scope,
+  };
+}
+
+// Refresh user's access token
+export async function refreshUserToken(refreshToken: string): Promise<UserRedditTokens> {
+  const clientId = Deno.env.get('REDDIT_CLIENT_ID');
+  const clientSecret = Deno.env.get('REDDIT_CLIENT_SECRET');
+
+  if (!clientId || !clientSecret) {
+    throw new Error('Reddit API credentials not configured');
+  }
+
+  const auth = btoa(`${clientId}:${clientSecret}`);
+  const requestId = createRequestId('reddit-refresh');
+  const startTime = Date.now();
+
+  console.log('[Reddit][Refresh] Refreshing user token', { requestId });
+
+  const response = await fetch('https://www.reddit.com/api/v1/access_token', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Basic ${auth}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'User-Agent': 'PubHub/1.0 (by /u/PubHubApp)',
+    },
+    body: new URLSearchParams({
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+    }).toString(),
+  });
+
+  const durationMs = Date.now() - startTime;
+  console.log('[Reddit][Refresh] Refresh response', {
+    requestId,
+    status: response.status,
+    durationMs,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('[Reddit][Refresh] Token refresh failed', {
+      requestId,
+      status: response.status,
+      error: errorText,
+    });
+    throw new Error(`Failed to refresh token: ${response.status}`);
+  }
+
+  const data = await response.json();
+
+  return {
+    access_token: data.access_token,
+    refresh_token: refreshToken, // Reddit doesn't return new refresh token
+    expires_at: Date.now() + (data.expires_in * 1000),
+    scope: data.scope,
+  };
+}
+
+// Get valid user token (refresh if needed)
+export async function getUserToken(tokens: UserRedditTokens): Promise<string> {
+  // Check if token is expired or will expire in next 5 minutes
+  if (tokens.expires_at < Date.now() + (5 * 60 * 1000)) {
+    console.log('[Reddit][Token] User token expired, refreshing');
+    const newTokens = await refreshUserToken(tokens.refresh_token);
+    // Caller needs to save new tokens - return new access token
+    return newTokens.access_token;
+  }
+
+  return tokens.access_token;
+}
+
+// Get subreddit posts with user token
+export async function getSubredditPostsWithUserToken(
+  userToken: string,
+  subreddit: string,
+  limit: number = 100,
+  after?: string
+): Promise<{ posts: any[]; after: string | null }> {
+  const requestId = createRequestId('reddit-posts-user');
+  const startTime = Date.now();
+
+  let url = `https://oauth.reddit.com/r/${subreddit}/new?limit=${limit}`;
+  if (after) {
+    url += `&after=${after}`;
+  }
+
+  console.debug('[Reddit][getSubredditPostsUser] Request initiated', {
+    requestId,
+    subreddit,
+    limit,
+    after,
+  });
+
+  const response = await fetch(url, {
+    headers: {
+      'Authorization': `Bearer ${userToken}`,
+      'User-Agent': 'PubHub/1.0 (by /u/PubHubApp)',
+    }
+  });
+
+  const durationMs = Date.now() - startTime;
+  console.debug('[Reddit][getSubredditPostsUser] Response received', {
+    requestId,
+    status: response.status,
+    durationMs,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('[Reddit][getSubredditPostsUser] Request failed', {
+      requestId,
+      status: response.status,
+      statusText: response.statusText,
+      errorPreview: errorText.length > 500 ? `${errorText.slice(0, 500)}…` : errorText,
+    });
+    throw new Error(`Failed to fetch posts from r/${subreddit}: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  const posts = data.data.children.map((child: any) => child.data);
+
+  console.debug('[Reddit][getSubredditPostsUser] Parsed posts', {
+    requestId,
+    resultCount: posts.length,
+    after: data.data.after,
+  });
+
+  return {
+    posts,
+    after: data.data.after,
+  };
+}
+
+// Post a comment with user token
+export async function postComment(
+  userToken: string,
+  parentFullname: string,
+  text: string
+): Promise<any> {
+  const requestId = createRequestId('reddit-comment');
+  const startTime = Date.now();
+
+  console.log('[Reddit][postComment] Posting comment', {
+    requestId,
+    parentFullname,
+    textLength: text.length,
+  });
+
+  const response = await fetch('https://oauth.reddit.com/api/comment', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${userToken}`,
+      'User-Agent': 'PubHub/1.0 (by /u/PubHubApp)',
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({
+      api_type: 'json',
+      text,
+      thing_id: parentFullname,
+    }).toString(),
+  });
+
+  const durationMs = Date.now() - startTime;
+  console.log('[Reddit][postComment] Response received', {
+    requestId,
+    status: response.status,
+    durationMs,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('[Reddit][postComment] Request failed', {
+      requestId,
+      status: response.status,
+      error: errorText,
+    });
+    throw new Error(`Failed to post comment: ${response.status} - ${errorText}`);
+  }
+
+  const data = await response.json();
+
+  if (data.json?.errors && data.json.errors.length > 0) {
+    const error = data.json.errors[0];
+    console.error('[Reddit][postComment] Reddit API error', {
+      requestId,
+      error,
+    });
+    throw new Error(`Reddit API error: ${error[1]}`);
+  }
+
+  console.log('[Reddit][postComment] Comment posted successfully', { requestId });
+  return data.json.data;
+}
+
+// Get user's Reddit identity
+export async function getUserIdentity(userToken: string): Promise<any> {
+  const requestId = createRequestId('reddit-identity');
+  const startTime = Date.now();
+
+  console.log('[Reddit][getUserIdentity] Fetching user identity', { requestId });
+
+  const response = await fetch('https://oauth.reddit.com/api/v1/me', {
+    headers: {
+      'Authorization': `Bearer ${userToken}`,
+      'User-Agent': 'PubHub/1.0 (by /u/PubHubApp)',
+    }
+  });
+
+  const durationMs = Date.now() - startTime;
+  console.log('[Reddit][getUserIdentity] Response received', {
+    requestId,
+    status: response.status,
+    durationMs,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('[Reddit][getUserIdentity] Request failed', {
+      requestId,
+      status: response.status,
+      error: errorText,
+    });
+    throw new Error(`Failed to get user identity: ${response.status}`);
+  }
+
+  const data = await response.json();
+  console.log('[Reddit][getUserIdentity] User identity fetched', {
+    requestId,
+    username: data.name,
+  });
+
+  return data;
 }

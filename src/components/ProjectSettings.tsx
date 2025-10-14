@@ -8,7 +8,7 @@ import { Switch } from './ui/switch';
 import { Separator } from './ui/separator';
 import { Badge } from './ui/badge';
 import { Checkbox } from './ui/checkbox';
-import { Loader2, Plus, X, Trash2 } from 'lucide-react';
+import { Loader2, Plus, X, Trash2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { api } from '../lib/api';
 
 interface ProjectSettingsProps {
@@ -36,6 +36,56 @@ export function ProjectSettings({ project, userTier, onUpdate, onDelete }: Proje
   );
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [redditStatus, setRedditStatus] = useState<any>(null);
+  const [loadingRedditStatus, setLoadingRedditStatus] = useState(true);
+  const [connectingReddit, setConnectingReddit] = useState(false);
+  const [disconnectingReddit, setDisconnectingReddit] = useState(false);
+
+  useEffect(() => {
+    loadRedditStatus();
+  }, []);
+
+  const loadRedditStatus = async () => {
+    setLoadingRedditStatus(true);
+    try {
+      const status = await api.getRedditStatus();
+      setRedditStatus(status);
+    } catch (error) {
+      console.error('Error loading Reddit status:', error);
+    } finally {
+      setLoadingRedditStatus(false);
+    }
+  };
+
+  const handleConnectReddit = async () => {
+    setConnectingReddit(true);
+    try {
+      const { authUrl } = await api.getRedditAuthUrl();
+      window.location.href = authUrl;
+    } catch (error) {
+      console.error('Error connecting Reddit:', error);
+      alert('Failed to connect Reddit account');
+      setConnectingReddit(false);
+    }
+  };
+
+  const handleDisconnectReddit = async () => {
+    if (!confirm('Are you sure you want to disconnect your Reddit account? You will need to reconnect to scan subreddits.')) {
+      return;
+    }
+
+    setDisconnectingReddit(true);
+    try {
+      await api.disconnectReddit();
+      await loadRedditStatus();
+      alert('Reddit account disconnected successfully');
+    } catch (error) {
+      console.error('Error disconnecting Reddit:', error);
+      alert('Failed to disconnect Reddit account');
+    } finally {
+      setDisconnectingReddit(false);
+    }
+  };
 
   const subredditLimits: Record<string, number> = {
     free: 3,
@@ -343,6 +393,70 @@ export function ProjectSettings({ project, userTier, onUpdate, onDelete }: Proje
               </Badge>
             ))}
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Reddit Account</CardTitle>
+          <CardDescription>
+            Connect your Reddit account to scan subreddits and post responses
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {loadingRedditStatus ? (
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading Reddit connection status...
+            </div>
+          ) : redditStatus?.connected ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-green-600">
+                <CheckCircle2 className="h-5 w-5" />
+                <div>
+                  <p className="font-medium">Connected as u/{redditStatus.username}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Connected on {new Date(redditStatus.connected_at).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                onClick={handleDisconnectReddit}
+                disabled={disconnectingReddit}
+              >
+                {disconnectingReddit ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Disconnecting...
+                  </>
+                ) : (
+                  'Disconnect Reddit Account'
+                )}
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-orange-600">
+                <AlertCircle className="h-5 w-5" />
+                <p>You need to connect your Reddit account to scan subreddits and post responses.</p>
+              </div>
+              <Button
+                onClick={handleConnectReddit}
+                disabled={connectingReddit}
+                className="bg-gradient-to-r from-orange-600 to-red-600"
+              >
+                {connectingReddit ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Connecting...
+                  </>
+                ) : (
+                  'Connect Reddit Account'
+                )}
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 

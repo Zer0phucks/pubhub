@@ -136,4 +136,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ projectId, subreddits }),
     }),
+
+  // Reddit OAuth
+  getRedditAuthUrl: () => apiRequest('/reddit/auth'),
+
+  getRedditStatus: () => apiRequest('/reddit/status'),
+
+  disconnectReddit: () => apiRequest('/reddit/disconnect', { method: 'POST' }),
 };

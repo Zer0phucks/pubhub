@@ -63,6 +63,10 @@ export function Feed({ projectId, project }: FeedProps) {
     setScanning(true);
     setScanProgress(0);
 
+    // Declare interval variables outside try block for proper cleanup
+    let progressInterval: NodeJS.Timeout | null = null;
+    let subInterval: NodeJS.Timeout | null = null;
+
     try {
       const keywords = project.keywords || [];
       const keywordsText = keywords.length > 0
@@ -81,7 +85,7 @@ export function Feed({ projectId, project }: FeedProps) {
       const totalEstimatedTime = subredditCount * estimatedTimePerSubreddit;
 
       // Simulate progress since we don't have real-time updates from the API
-      const progressInterval = setInterval(() => {
+      progressInterval = setInterval(() => {
         setScanProgress((prev) => {
           if (prev >= 95) return prev; // Cap at 95% until actual response
           return prev + (100 / (totalEstimatedTime * 10)); // Update every 100ms
@@ -91,7 +95,7 @@ export function Feed({ projectId, project }: FeedProps) {
       // Update current subreddit being scanned (simulated)
       let currentSubIndex = 0;
       const subIntervalTime = (totalEstimatedTime * 1000) / subredditCount;
-      const subInterval = setInterval(() => {
+      subInterval = setInterval(() => {
         if (currentSubIndex < subredditCount) {
           setScanningSubreddit(`r/${project.subreddits[currentSubIndex]}`);
           currentSubIndex++;
@@ -101,8 +105,8 @@ export function Feed({ projectId, project }: FeedProps) {
       console.log('📡 Calling api.scanHistory with:', { projectId, subreddits: project.subreddits });
       const result = await api.scanHistory(projectId, project.subreddits);
 
-      clearInterval(progressInterval);
-      clearInterval(subInterval);
+      if (progressInterval) clearInterval(progressInterval);
+      if (subInterval) clearInterval(subInterval);
       setScanProgress(100);
 
       console.log('==================== SCAN RESULT ====================');
@@ -122,13 +126,25 @@ export function Feed({ projectId, project }: FeedProps) {
           description: `Scanned ${result.scanned || 0} posts from last 24 hours. Try adjusting your keywords in project settings.`,
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('==================== SCAN ERROR ====================');
       console.error('Error scanning subreddits:', error);
       console.error('===================================================');
-      toast.error('Failed to scan subreddits', {
-        description: error instanceof Error ? error.message : 'Unknown error',
-      });
+
+      if (progressInterval) clearInterval(progressInterval);
+      if (subInterval) clearInterval(subInterval);
+
+      // Check if it's a Reddit auth error
+      if (error.message?.includes('Reddit account not connected') || error.message?.includes('403')) {
+        toast.error('Reddit Account Not Connected', {
+          description: 'Please connect your Reddit account in Project Settings to scan subreddits.',
+          duration: 5000,
+        });
+      } else {
+        toast.error('Failed to scan subreddits', {
+          description: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
     } finally {
       setScanning(false);
       setScanProgress(0);
