@@ -213,20 +213,27 @@ export function extractKeywords(description: string): string[] {
 // Calculate relevance score
 export function calculateRelevanceScore(
   text: string,
-  keywords: string[]
+  keywords: string[],
+  debug: boolean = false
 ): number {
   const lowerText = text.toLowerCase();
   let score = 0;
-  
+  const matchedKeywords: string[] = [];
+
   for (const keyword of keywords) {
     const lowerKeyword = keyword.toLowerCase();
     const regex = new RegExp(`\\b${lowerKeyword}\\b`, 'gi');
     const matches = lowerText.match(regex);
     if (matches) {
       score += matches.length * 10;
+      matchedKeywords.push(`${keyword}(${matches.length})`);
     }
   }
-  
+
+  if (debug && matchedKeywords.length > 0) {
+    console.log(`   Matched keywords: ${matchedKeywords.join(', ')} → Score: ${score}`);
+  }
+
   return score;
 }
 

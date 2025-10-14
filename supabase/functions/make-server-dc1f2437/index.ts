@@ -533,51 +533,87 @@ app.post('/make-server-dc1f2437/validate-subreddit', async (c) => {
 // Scan History - Enhanced with better relevance scoring
 app.post('/make-server-dc1f2437/scan-history', async (c) => {
   try {
+    console.log('==================== SCAN HISTORY START ====================');
     const user = await getAuthUser(c.req.raw);
     if (!user) {
       return c.json({ error: 'Unauthorized' }, 401);
     }
 
     const { projectId, subreddits } = await c.req.json();
-    
+    console.log('Request data:', { projectId, subreddits, userId: user.id });
+
     const profile = await kv.get(`user:${user.id}`);
+    console.log('User profile:', { tier: profile?.tier, email: profile?.email });
+
     const project = await kv.get(`project:${user.id}:${projectId}`);
-    
+    console.log('Project data:', {
+      name: project?.name,
+      description: project?.description?.substring(0, 100),
+      hasKeywords: project?.keywords?.length > 0,
+      keywordsCount: project?.keywords?.length || 0
+    });
+
     if (!project) {
+      console.log('❌ Project not found');
       return c.json({ error: 'Project not found' }, 404);
     }
 
     // Determine scan days based on tier
     // Free: 1 day, Basic: 30 days, Pro: 90 days
     const scanDays = profile.tier === 'pro' ? 90 : profile.tier === 'basic' ? 30 : 1;
+    console.log(`Scan settings: ${scanDays} days for ${profile.tier} tier`);
 
     // Use project keywords if available, otherwise extract from description
     const keywords = project.keywords && project.keywords.length > 0
       ? project.keywords
       : reddit.extractKeywords(project.description);
 
-    console.log(`Scanning with keywords: ${keywords.join(', ')}`);
+    console.log(`✅ Keywords (${keywords.length}):`, keywords);
 
     const feedItems: any[] = [];
     let totalScanned = 0;
+    let withinDateRange = 0;
+    let matchedPosts = 0;
     const cutoffDate = Date.now() - (scanDays * 24 * 60 * 60 * 1000);
+    console.log(`Cutoff date: ${new Date(cutoffDate).toISOString()}`);
 
     // Scan each subreddit
     for (const subreddit of subreddits) {
       try {
+        console.log(`\n📡 Fetching posts from r/${subreddit}...`);
         const { posts } = await reddit.getSubredditPosts(subreddit, 100);
+        console.log(`Retrieved ${posts.length} posts from r/${subreddit}`);
 
         for (const postData of posts) {
           const postDate = postData.created_utc * 1000;
           totalScanned++;
 
-          if (postDate < cutoffDate) continue;
+          if (postDate < cutoffDate) {
+            if (totalScanned <= 3) {
+              console.log(`⏰ Post too old: "${postData.title.substring(0, 50)}" (${new Date(postDate).toISOString()})`);
+            }
+            continue;
+          }
+
+          withinDateRange++;
 
           // Check relevance
           const text = `${postData.title} ${postData.selftext}`;
-          const relevanceScore = reddit.calculateRelevanceScore(text, keywords);
+          const debugMode = withinDateRange <= 5;
+          const relevanceScore = reddit.calculateRelevanceScore(text, keywords, debugMode);
+          const isRelevant = reddit.isRelevant(text, keywords);
 
-          if (relevanceScore > 0 || reddit.isRelevant(text, keywords)) {
+          // Log first few posts for debugging
+          if (debugMode) {
+            console.log(`\n🔍 Post #${withinDateRange}: "${postData.title.substring(0, 60)}"`);
+            console.log(`   Date: ${new Date(postDate).toISOString()}`);
+            console.log(`   Score: ${relevanceScore}, IsRelevant: ${isRelevant}`);
+            console.log(`   Text preview: ${text.substring(0, 100)}...`);
+          }
+
+          if (relevanceScore > 0 || isRelevant) {
+            matchedPosts++;
+            console.log(`✅ MATCH #${matchedPosts}! Title: "${postData.title.substring(0, 60)}" | Score: ${relevanceScore}`);
             const itemId = crypto.randomUUID();
             const feedItem = {
               id: itemId,
@@ -648,20 +684,36 @@ app.post('/make-server-dc1f2437/scan-history', async (c) => {
           }
         }
       } catch (error) {
-        console.log(`Error scanning r/${subreddit}: ${error.message}`);
+        console.log(`❌ Error scanning r/${subreddit}: ${error.message}`);
+        console.error('Full error:', error);
       }
     }
 
     // Sort by relevance score
     feedItems.sort((a, b) => b.relevance_score - a.relevance_score);
 
+    console.log('\n==================== SCAN SUMMARY ====================');
+    console.log(`Total posts retrieved: ${totalScanned}`);
+    console.log(`Posts within date range: ${withinDateRange}`);
+    console.log(`Matched posts: ${matchedPosts}`);
+    console.log(`Feed items created: ${feedItems.length}`);
+    console.log('=======================================================\n');
+
     return c.json({
       scanned: totalScanned,
       newItems: feedItems.length,
-      items: feedItems
+      items: feedItems,
+      debug: {
+        totalScanned,
+        withinDateRange,
+        matchedPosts,
+        keywords: keywords.length,
+        subreddits: subreddits.length
+      }
     });
   } catch (error) {
-    console.log(`Scan history error: ${error.message}`);
+    console.log(`❌ Scan history error: ${error.message}`);
+    console.error('Full error stack:', error.stack);
     return c.json({ error: error.message }, 500);
   }
 });

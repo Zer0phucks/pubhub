@@ -6,6 +6,7 @@ import { EmptyState } from './EmptyState';
 import { Loader2, RefreshCw, Inbox, Scan } from 'lucide-react';
 import { toast } from 'sonner';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
+import { Progress } from './ui/progress';
 import { api } from '../lib/api';
 
 interface FeedProps {
@@ -19,6 +20,8 @@ export function Feed({ projectId, project }: FeedProps) {
   const [sortBy, setSortBy] = useState('recent');
   const [refreshing, setRefreshing] = useState(false);
   const [scanning, setScanning] = useState(false);
+  const [scanProgress, setScanProgress] = useState(0);
+  const [scanningSubreddit, setScanningSubreddit] = useState('');
 
   const loadFeed = async () => {
     try {
@@ -50,17 +53,52 @@ export function Feed({ projectId, project }: FeedProps) {
     }
 
     setScanning(true);
+    setScanProgress(0);
+
     try {
       const keywords = project.keywords || [];
       const keywordsText = keywords.length > 0
         ? keywords.slice(0, 5).join(', ') + (keywords.length > 5 ? '...' : '')
         : 'auto-generated keywords';
 
-      toast.info('Scanning Reddit...', {
-        description: `Scanning ${project.subreddits.length} subreddit(s) for: ${keywordsText}`,
-      });
+      console.log('==================== SCAN NOW CLICKED ====================');
+      console.log('Project ID:', projectId);
+      console.log('Project Name:', project.name);
+      console.log('Subreddits:', project.subreddits);
+      console.log('Keywords:', project.keywords);
+      console.log('=========================================================');
+
+      const subredditCount = project.subreddits.length;
+      const estimatedTimePerSubreddit = 3; // seconds
+      const totalEstimatedTime = subredditCount * estimatedTimePerSubreddit;
+
+      // Simulate progress since we don't have real-time updates from the API
+      const progressInterval = setInterval(() => {
+        setScanProgress((prev) => {
+          if (prev >= 95) return prev; // Cap at 95% until actual response
+          return prev + (100 / (totalEstimatedTime * 10)); // Update every 100ms
+        });
+      }, 100);
+
+      // Update current subreddit being scanned (simulated)
+      let currentSubIndex = 0;
+      const subIntervalTime = (totalEstimatedTime * 1000) / subredditCount;
+      const subInterval = setInterval(() => {
+        if (currentSubIndex < subredditCount) {
+          setScanningSubreddit(`r/${project.subreddits[currentSubIndex]}`);
+          currentSubIndex++;
+        }
+      }, subIntervalTime);
 
       const result = await api.scanHistory(projectId, project.subreddits);
+
+      clearInterval(progressInterval);
+      clearInterval(subInterval);
+      setScanProgress(100);
+
+      console.log('==================== SCAN RESULT ====================');
+      console.log('Result:', result);
+      console.log('====================================================');
 
       if (result.newItems > 0) {
         toast.success(`Found ${result.newItems} new relevant post(s)!`, {
@@ -73,12 +111,16 @@ export function Feed({ projectId, project }: FeedProps) {
         });
       }
     } catch (error) {
+      console.error('==================== SCAN ERROR ====================');
       console.error('Error scanning subreddits:', error);
+      console.error('===================================================');
       toast.error('Failed to scan subreddits', {
         description: error instanceof Error ? error.message : 'Unknown error',
       });
     } finally {
       setScanning(false);
+      setScanProgress(0);
+      setScanningSubreddit('');
     }
   };
 
@@ -92,6 +134,26 @@ export function Feed({ projectId, project }: FeedProps) {
 
   return (
     <div className="space-y-4">
+      {scanning && (
+        <div className="bg-white border border-teal-200 rounded-lg p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-medium text-teal-900">Scanning Reddit...</h3>
+              <p className="text-sm text-muted-foreground">
+                {scanningSubreddit || 'Preparing scan...'}
+                {scanProgress > 0 && scanProgress < 100 && (
+                  <span className="ml-2">
+                    • Est. {Math.ceil(((100 - scanProgress) / 100) * (project.subreddits.length * 3))}s remaining
+                  </span>
+                )}
+              </p>
+            </div>
+            <span className="text-sm font-medium text-teal-600">{Math.round(scanProgress)}%</span>
+          </div>
+          <Progress value={scanProgress} className="h-2" />
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-semibold">Feed</h2>
         <div className="flex items-center gap-2">
