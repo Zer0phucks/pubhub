@@ -31,6 +31,26 @@ export async function callAzureOpenAI(
     ? [{ role: 'system', content: systemPrompt }, ...messages]
     : messages;
 
+  const requestId = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const startTime = Date.now();
+  const messagePreview = allMessages.map(message => ({
+    role: message.role,
+    content: message.content.length > 120
+      ? `${message.content.slice(0, 120)}…`
+      : message.content,
+  }));
+
+  console.debug('[AI][callAzureOpenAI] Request initiated', {
+    requestId,
+    endpoint,
+    messageCount: allMessages.length,
+    hasSystemPrompt: Boolean(systemPrompt),
+    config,
+    messagesPreview: messagePreview,
+  });
+
   const requestBody = {
     messages: allMessages,
     max_completion_tokens: config.maxTokens || 800,
@@ -51,25 +71,48 @@ export async function callAzureOpenAI(
       body: JSON.stringify(requestBody),
     });
 
+    const durationMs = Date.now() - startTime;
+    console.debug('[AI][callAzureOpenAI] Response received', {
+      requestId,
+      status: response.status,
+      durationMs,
+      azureRequestId: response.headers.get('apim-request-id') || response.headers.get('x-request-id') || undefined,
+    });
+
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Azure OpenAI API Error:', {
+      console.error('[AI][callAzureOpenAI] API error', {
+        requestId,
         status: response.status,
         statusText: response.statusText,
-        error: errorText,
+        errorPreview: errorText.length > 500 ? `${errorText.slice(0, 500)}…` : errorText,
       });
       throw new Error(`Azure OpenAI API error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
+    console.debug('[AI][callAzureOpenAI] Parsed response', {
+      requestId,
+      choiceCount: Array.isArray(data.choices) ? data.choices.length : 0,
+      usage: data.usage,
+    });
     
     if (!data.choices || !data.choices[0] || !data.choices[0].message) {
       throw new Error('Invalid response format from Azure OpenAI');
     }
 
-    return data.choices[0].message.content;
+    const content = data.choices[0].message.content;
+    console.debug('[AI][callAzureOpenAI] Completed', {
+      requestId,
+      contentPreview: content.length > 200 ? `${content.slice(0, 200)}…` : content,
+    });
+
+    return content;
   } catch (error) {
-    console.error('Error calling Azure OpenAI:', error);
+    console.error('[AI][callAzureOpenAI] Request failed', {
+      requestId,
+      error,
+    });
     throw error;
   }
 }
