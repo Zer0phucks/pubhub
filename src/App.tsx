@@ -39,20 +39,13 @@ function AppContent() {
 
   useEffect(() => {
     if (clerkUser) {
-      // Set up Clerk JWT authentication
+      // Temporarily use Supabase anon key for authentication
+      // This is a workaround because Supabase Edge Functions with verify_jwt=true
+      // reject Clerk JWTs at the infrastructure level before the code runs
       setGetTokenFunction(async () => {
-        try {
-          const token = await getToken();
-          if (token) {
-            console.log('Using Clerk JWT authentication');
-            return token;
-          }
-          console.log('No Clerk token available, falling back to demo mode');
-          return null;
-        } catch (error) {
-          console.error('Error getting Clerk token:', error);
-          return null;
-        }
+        console.log('Using Supabase anon key (demo mode)');
+        // Return null to use Supabase anon key from api.ts
+        return null;
       });
 
       loadUserData();

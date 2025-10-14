@@ -8,7 +8,13 @@ import * as openai from './openai.tsx';
 
 const app = new Hono();
 
-app.use('*', cors());
+// Configure CORS to allow all origins for development
+app.use('*', cors({
+  origin: '*',
+  allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+}));
 app.use('*', logger(console.log));
 
 // Health check endpoint
@@ -59,13 +65,13 @@ function base64UrlDecode(str: string): string {
   }
 }
 
-// Helper to get authenticated user from Clerk
+// Helper to get authenticated user from Clerk or Supabase
 async function getAuthUser(request: Request) {
   const authHeader = request.headers.get('Authorization');
-  
+
   console.log('==================== AUTH CHECK ====================');
   console.log('Authorization header:', authHeader ? 'Present' : 'Missing');
-  
+
   if (!authHeader) {
     console.log('No auth header - using demo user');
     return {
@@ -74,7 +80,7 @@ async function getAuthUser(request: Request) {
       name: 'Demo User',
     };
   }
-  
+
   const token = authHeader.replace('Bearer ', '');
   if (!token || token === authHeader) {
     console.log('No Bearer token - using demo user');
@@ -84,9 +90,21 @@ async function getAuthUser(request: Request) {
       name: 'Demo User',
     };
   }
-  
+
   console.log('Token received (first 30 chars):', token.substring(0, 30) + '...');
   console.log('Token length:', token.length);
+
+  // Check if this is the Supabase anon key (used for public access)
+  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+  if (supabaseAnonKey && token === supabaseAnonKey) {
+    console.log('✅ Supabase anon key detected - using demo user for public access');
+    console.log('==================================================');
+    return {
+      id: 'demo-user-123',
+      email: 'demo@pubhub.test',
+      name: 'Demo User',
+    };
+  }
   
   try {
     const clerkSecretKey = Deno.env.get('CLERK_SECRET_KEY');
