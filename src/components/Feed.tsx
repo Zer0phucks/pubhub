@@ -45,13 +45,21 @@ export function Feed({ projectId, project }: FeedProps) {
   };
 
   const handleScanNow = async () => {
+    console.log('==================== SCAN NOW BUTTON CLICKED ====================');
+    console.log('Project data:', project);
+    console.log('Has subreddits?', project?.subreddits);
+    console.log('Subreddit count:', project?.subreddits?.length);
+    console.log('================================================================');
+
     if (!project || !project.subreddits || project.subreddits.length === 0) {
+      console.error('❌ SCAN BLOCKED: No subreddits configured');
       toast.error('No subreddits configured', {
         description: 'Please add subreddits to your project settings first.',
       });
       return;
     }
 
+    console.log('✅ Validation passed, starting scan...');
     setScanning(true);
     setScanProgress(0);
 
@@ -61,7 +69,7 @@ export function Feed({ projectId, project }: FeedProps) {
         ? keywords.slice(0, 5).join(', ') + (keywords.length > 5 ? '...' : '')
         : 'auto-generated keywords';
 
-      console.log('==================== SCAN NOW CLICKED ====================');
+      console.log('==================== SCAN NOW STARTING ====================');
       console.log('Project ID:', projectId);
       console.log('Project Name:', project.name);
       console.log('Subreddits:', project.subreddits);
@@ -90,6 +98,7 @@ export function Feed({ projectId, project }: FeedProps) {
         }
       }, subIntervalTime);
 
+      console.log('📡 Calling api.scanHistory with:', { projectId, subreddits: project.subreddits });
       const result = await api.scanHistory(projectId, project.subreddits);
 
       clearInterval(progressInterval);
@@ -98,6 +107,9 @@ export function Feed({ projectId, project }: FeedProps) {
 
       console.log('==================== SCAN RESULT ====================');
       console.log('Result:', result);
+      console.log('New items:', result.newItems);
+      console.log('Total scanned:', result.scanned);
+      console.log('Debug info:', result.debug);
       console.log('====================================================');
 
       if (result.newItems > 0) {

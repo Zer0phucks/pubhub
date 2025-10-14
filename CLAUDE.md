@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Login Credentials**
 Use these credentials for authenticating pubhub.dev
 email : "claude@test.com"
-password : "password"
+password : "1Bunfartedoneye"
 ## Project Overview
 
 PubHub is a Reddit engagement platform that helps developers find and respond to relevant discussions about their apps/products. It uses AI to scan subreddits, identify relevant posts, and generate contextual responses.
