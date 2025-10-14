@@ -39,13 +39,21 @@ function AppContent() {
 
   useEffect(() => {
     if (clerkUser) {
-      // Temporarily use Supabase anon key for authentication
-      // This is a workaround because Supabase Edge Functions with verify_jwt=true
-      // reject Clerk JWTs at the infrastructure level before the code runs
+      // Set up dual authentication: try Clerk JWT first, fallback to Supabase anon key
       setGetTokenFunction(async () => {
-        console.log('Using Supabase anon key (demo mode)');
-        // Return null to use Supabase anon key from api.ts
-        return null;
+        try {
+          const token = await getToken();
+          if (token) {
+            console.log('Using Clerk JWT authentication');
+            return token;
+          }
+          console.log('No Clerk token available, using Supabase anon key');
+          return null; // Will use Supabase anon key from api.ts
+        } catch (error) {
+          console.error('Error getting Clerk token:', error);
+          console.log('Falling back to Supabase anon key');
+          return null; // Will use Supabase anon key from api.ts
+        }
       });
 
       loadUserData();
