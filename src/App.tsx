@@ -39,13 +39,22 @@ function AppContent() {
 
   useEffect(() => {
     if (clerkUser) {
-      // Temporarily disable Clerk JWT authentication to use demo user fallback
-      // This allows the app to work while Clerk domain configuration is being set up
+      // Set up Clerk JWT authentication
       setGetTokenFunction(async () => {
-        console.log('Using demo user mode - Clerk JWT validation disabled');
-        return null; // Return null to trigger demo user fallback in backend
+        try {
+          const token = await getToken();
+          if (token) {
+            console.log('Using Clerk JWT authentication');
+            return token;
+          }
+          console.log('No Clerk token available, falling back to demo mode');
+          return null;
+        } catch (error) {
+          console.error('Error getting Clerk token:', error);
+          return null;
+        }
       });
-      
+
       loadUserData();
     }
   }, [clerkUser, getToken]);
@@ -71,8 +80,7 @@ function AppContent() {
       console.log('==================== LOADING USER DATA ====================');
       console.log('Clerk user ID:', clerkUser?.id);
       console.log('Clerk user email:', clerkUser?.primaryEmailAddress?.emailAddress);
-      console.log('Using demo user mode for backend authentication');
-      
+
       // Initialize or get user profile
       console.log('Initializing profile...');
       const profile = await api.initProfile();
