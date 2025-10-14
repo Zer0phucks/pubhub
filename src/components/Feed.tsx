@@ -3,7 +3,6 @@ import { Button } from './ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { FeedItem } from './FeedItem';
 import { EmptyState } from './EmptyState';
-import { DemoModeToggle } from './DemoModeToggle';
 import { Loader2, RefreshCw, Inbox, Scan } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../lib/api';
@@ -86,15 +85,14 @@ export function Feed({ projectId, project }: FeedProps) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2>Feed</h2>
+        <h2 className="text-2xl font-semibold">Feed</h2>
         <div className="flex items-center gap-2">
-          <DemoModeToggle projectId={projectId} onUpdate={loadFeed} />
           <Button
             variant="default"
             size="sm"
             onClick={handleScanNow}
             disabled={scanning}
-            className="bg-teal-600 hover:bg-teal-700"
+            className="bg-teal-600 hover:bg-teal-700 text-white"
           >
             {scanning ? (
               <>
@@ -135,7 +133,7 @@ export function Feed({ projectId, project }: FeedProps) {
           title="No items in your feed yet"
           description={
             project && project.subreddits && project.subreddits.length > 0
-              ? 'Click "Scan Now" to find relevant discussions, or add demo data to try it out!'
+              ? 'Click "Scan Now" to find relevant discussions on Reddit.'
               : 'Add subreddits in your project settings, then click "Scan Now" to find relevant discussions.'
           }
         />

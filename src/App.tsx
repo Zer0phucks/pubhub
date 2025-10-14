@@ -276,7 +276,6 @@ function AppContent() {
           />
           <main className="flex-1 overflow-y-auto p-6">
             <div className="container mx-auto max-w-7xl">
-              <DemoModeBanner />
               {activeView === 'feed' && <Feed projectId={currentProject.id} project={currentProject} />}
               {activeView === 'post' && <CreatePost project={currentProject} />}
               {activeView === 'settings' && (
