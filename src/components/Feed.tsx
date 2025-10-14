@@ -5,6 +5,7 @@ import { FeedItem } from './FeedItem';
 import { EmptyState } from './EmptyState';
 import { Loader2, RefreshCw, Inbox, Scan } from 'lucide-react';
 import { toast } from 'sonner';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { api } from '../lib/api';
 
 interface FeedProps {
@@ -50,18 +51,25 @@ export function Feed({ projectId, project }: FeedProps) {
 
     setScanning(true);
     try {
+      const keywords = project.keywords || [];
+      const keywordsText = keywords.length > 0
+        ? keywords.slice(0, 5).join(', ') + (keywords.length > 5 ? '...' : '')
+        : 'auto-generated keywords';
+
       toast.info('Scanning Reddit...', {
-        description: `Monitoring ${project.subreddits.length} subreddit(s) for new relevant posts.`,
+        description: `Scanning ${project.subreddits.length} subreddit(s) for: ${keywordsText}`,
       });
 
-      const result = await api.monitorSubreddits(projectId, project.subreddits);
+      const result = await api.scanHistory(projectId, project.subreddits);
 
       if (result.newItems > 0) {
-        toast.success(`Found ${result.newItems} new relevant post(s)!`);
+        toast.success(`Found ${result.newItems} new relevant post(s)!`, {
+          description: `Scanned ${result.scanned} posts from last 24 hours`,
+        });
         await loadFeed();
       } else {
         toast.info('No new relevant posts found', {
-          description: 'We\'ll keep monitoring for you.',
+          description: `Scanned ${result.scanned || 0} posts from last 24 hours. Try adjusting your keywords in project settings.`,
         });
       }
     } catch (error) {
@@ -87,25 +95,34 @@ export function Feed({ projectId, project }: FeedProps) {
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-semibold">Feed</h2>
         <div className="flex items-center gap-2">
-          <Button
-            variant="default"
-            size="sm"
-            onClick={handleScanNow}
-            disabled={scanning}
-            className="bg-teal-600 hover:bg-teal-700 text-white"
-          >
-            {scanning ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Scanning...
-              </>
-            ) : (
-              <>
-                <Scan className="h-4 w-4 mr-2" />
-                Scan Now
-              </>
-            )}
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleScanNow}
+                  disabled={scanning}
+                  className="bg-teal-600 hover:bg-teal-700 text-white"
+                >
+                  {scanning ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Scanning...
+                    </>
+                  ) : (
+                    <>
+                      <Scan className="h-4 w-4 mr-2" />
+                      Scan Now
+                    </>
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Scan Reddit for new relevant posts in your subreddits</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <Select value={sortBy} onValueChange={setSortBy}>
             <SelectTrigger className="w-40">
               <SelectValue />

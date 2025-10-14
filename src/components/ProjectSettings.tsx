@@ -24,6 +24,8 @@ export function ProjectSettings({ project, userTier, onUpdate, onDelete }: Proje
   const [url, setUrl] = useState(project.url || '');
   const [icon, setIcon] = useState(project.icon || '');
   const [persona, setPersona] = useState(project.persona);
+  const [keywords, setKeywords] = useState<string[]>(project.keywords || []);
+  const [newKeyword, setNewKeyword] = useState('');
   const [selectedSubreddits, setSelectedSubreddits] = useState<string[]>(project.subreddits);
   const [newSubreddit, setNewSubreddit] = useState('');
   const [validatingSubreddit, setValidatingSubreddit] = useState(false);
@@ -41,7 +43,14 @@ export function ProjectSettings({ project, userTier, onUpdate, onDelete }: Proje
     pro: Infinity,
   };
 
+  const keywordLimits: Record<string, number> = {
+    free: 10,
+    basic: 20,
+    pro: 50,
+  };
+
   const maxSubreddits = subredditLimits[userTier] || 3;
+  const maxKeywords = keywordLimits[userTier] || 10;
 
   const handleValidateSubreddit = async () => {
     if (!newSubreddit) return;
@@ -91,6 +100,25 @@ export function ProjectSettings({ project, userTier, onUpdate, onDelete }: Proje
     setSelectedSubreddits(selectedSubreddits.filter((s) => s !== subreddit));
   };
 
+  const handleAddKeyword = () => {
+    const trimmed = newKeyword.trim().toLowerCase();
+    if (!trimmed || keywords.includes(trimmed)) {
+      return;
+    }
+
+    if (keywords.length >= maxKeywords) {
+      alert(`You can only have up to ${maxKeywords} keywords on the ${userTier} tier`);
+      return;
+    }
+
+    setKeywords([...keywords, trimmed]);
+    setNewKeyword('');
+  };
+
+  const handleRemoveKeyword = (keyword: string) => {
+    setKeywords(keywords.filter((k) => k !== keyword));
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -100,6 +128,7 @@ export function ProjectSettings({ project, userTier, onUpdate, onDelete }: Proje
         url,
         icon,
         persona,
+        keywords,
         subreddits: selectedSubreddits,
         settings: {
           aiResponses,
@@ -181,6 +210,57 @@ export function ProjectSettings({ project, userTier, onUpdate, onDelete }: Proje
               onChange={(e) => setIcon(e.target.value)}
               maxLength={2}
             />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Search Keywords</CardTitle>
+          <CardDescription>
+            {keywords.length} of {maxKeywords} keywords • Used to find relevant posts on Reddit
+            {userTier === 'free' && ' • Upgrade to Basic for 20 keywords or Pro for 50'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <Input
+                value={newKeyword}
+                onChange={(e) => setNewKeyword(e.target.value)}
+                placeholder="Add keyword (e.g., productivity, automation)"
+                onKeyPress={(e) => e.key === 'Enter' && handleAddKeyword()}
+              />
+              <Button
+                onClick={handleAddKeyword}
+                disabled={keywords.length >= maxKeywords}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {keywords.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Keywords will be auto-generated from your project description. Add custom keywords to refine your search.
+              </p>
+            ) : (
+              keywords.map((keyword) => (
+                <Badge
+                  key={keyword}
+                  variant="secondary"
+                  className="px-3 py-1 flex items-center gap-2"
+                >
+                  {keyword}
+                  <button
+                    onClick={() => handleRemoveKeyword(keyword)}
+                    className="hover:text-red-600"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              ))
+            )}
           </div>
         </CardContent>
       </Card>

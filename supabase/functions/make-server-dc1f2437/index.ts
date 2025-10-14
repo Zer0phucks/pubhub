@@ -281,16 +281,48 @@ app.post('/make-server-dc1f2437/projects', async (c) => {
     }
 
     const { name, description, url, icon, subreddits, persona } = await c.req.json();
-    
+
     // Check project limits based on tier
     const profile = await kv.get(`user:${user.id}`);
     const existingProjects = await kv.getByPrefix(`project:${user.id}:`);
-    
+
     const limits = { free: 1, basic: 5, pro: Infinity };
     const limit = limits[profile.tier] || 1;
-    
+
     if (existingProjects.length >= limit) {
       return c.json({ error: `Project limit reached for ${profile.tier} tier` }, 400);
+    }
+
+    // Generate keywords using AI
+    console.log('Generating keywords for project:', description);
+    let keywords = [];
+    try {
+      const keywordPrompt = `Analyze this app description and extract 5-10 key terms that would help identify relevant Reddit posts. Focus on:
+- Core features and functionality
+- Target audience needs
+- Problem being solved
+- Industry/category terms
+- User intent keywords
+
+App description: "${description}"
+
+Return ONLY a JSON array of lowercase keywords without explanations. Example: ["productivity", "automation", "developers", "workflow", "efficiency"]`;
+
+      const keywordResponse = await openrouter.callOpenRouter([
+        { role: 'user', content: keywordPrompt }
+      ], 'You are a keyword extraction expert. Return only valid JSON.', { model: 'perplexity/sonar' });
+
+      keywords = openrouter.safeJSONParse(keywordResponse, []);
+      console.log('AI generated keywords:', keywords);
+
+      // Fallback to basic extraction if AI fails
+      if (!Array.isArray(keywords) || keywords.length === 0) {
+        keywords = reddit.extractKeywords(description);
+        console.log('Using fallback keyword extraction:', keywords);
+      }
+    } catch (error) {
+      console.log('Keyword generation failed, using fallback:', error.message);
+      keywords = reddit.extractKeywords(description);
     }
 
     const projectId = crypto.randomUUID();
@@ -302,6 +334,7 @@ app.post('/make-server-dc1f2437/projects', async (c) => {
       url,
       icon,
       subreddits: subreddits || [],
+      keywords: keywords,
       persona: persona || 'You are a helpful and friendly app developer responding to potential users on Reddit.',
       settings: {
         aiResponses: true,
@@ -315,7 +348,7 @@ app.post('/make-server-dc1f2437/projects', async (c) => {
     };
 
     await kv.set(`project:${user.id}:${projectId}`, project);
-    
+
     return c.json(project);
   } catch (error) {
     console.log(`Create project error: ${error.message}`);
@@ -518,8 +551,15 @@ app.post('/make-server-dc1f2437/scan-history', async (c) => {
     // Free: 1 day, Basic: 30 days, Pro: 90 days
     const scanDays = profile.tier === 'pro' ? 90 : profile.tier === 'basic' ? 30 : 1;
 
-    const keywords = reddit.extractKeywords(project.description);
+    // Use project keywords if available, otherwise extract from description
+    const keywords = project.keywords && project.keywords.length > 0
+      ? project.keywords
+      : reddit.extractKeywords(project.description);
+
+    console.log(`Scanning with keywords: ${keywords.join(', ')}`);
+
     const feedItems: any[] = [];
+    let totalScanned = 0;
     const cutoffDate = Date.now() - (scanDays * 24 * 60 * 60 * 1000);
 
     // Scan each subreddit
@@ -529,7 +569,8 @@ app.post('/make-server-dc1f2437/scan-history', async (c) => {
 
         for (const postData of posts) {
           const postDate = postData.created_utc * 1000;
-          
+          totalScanned++;
+
           if (postDate < cutoffDate) continue;
 
           // Check relevance
@@ -614,7 +655,11 @@ app.post('/make-server-dc1f2437/scan-history', async (c) => {
     // Sort by relevance score
     feedItems.sort((a, b) => b.relevance_score - a.relevance_score);
 
-    return c.json({ scanned: feedItems.length, items: feedItems });
+    return c.json({
+      scanned: totalScanned,
+      newItems: feedItems.length,
+      items: feedItems
+    });
   } catch (error) {
     console.log(`Scan history error: ${error.message}`);
     return c.json({ error: error.message }, 500);
