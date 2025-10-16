@@ -2,16 +2,45 @@ import { Hono } from 'npm:hono';
 import { cors } from 'npm:hono/cors';
 import { logger } from 'npm:hono/logger';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { serve } from 'npm:inngest/hono';
 import * as kv from './kv_store.tsx';
 import * as reddit from './reddit.tsx';
 import * as openai from './openai.tsx';
 import * as openrouter from './openrouter.tsx';
+import { inngest } from './inngest.ts';
+import { functions } from './inngest-functions.ts';
+import { verifyClerkToken, decodeJWTPayload } from './jwt.ts';
 
 const app = new Hono();
 
-// Configure CORS to allow all origins for development
+// Configure CORS with environment-specific origins
+const allowedOrigins = Deno.env.get('ALLOWED_ORIGINS')?.split(',') || [
+  'https://pubhub.dev',
+  'https://www.pubhub.dev',
+  'http://localhost:3000',
+  'http://localhost:5173',
+];
+
+// Security mode: 'strict' requires verified JWT, 'dev' allows demo user fallback
+const SECURITY_MODE = Deno.env.get('SECURITY_MODE') || 'dev';
+
+console.log('[Security] Mode:', SECURITY_MODE);
+console.log('[CORS] Allowed origins:', allowedOrigins);
+
 app.use('*', cors({
-  origin: '*',
+  origin: (origin) => {
+    // Allow requests without origin (like from Postman/curl)
+    if (!origin) return '*';
+
+    // Check if origin is in allowed list
+    if (allowedOrigins.includes(origin)) return origin;
+
+    // In dev mode, allow all origins
+    if (SECURITY_MODE === 'dev') return origin;
+
+    // In strict mode, reject unauthorized origins
+    return allowedOrigins[0]; // Return first allowed origin as default
+  },
   allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
@@ -20,12 +49,18 @@ app.use('*', logger(console.log));
 
 // Health check endpoint
 app.get('/make-server-dc1f2437/health', (c) => {
-  return c.json({ 
-    status: 'ok', 
+  return c.json({
+    status: 'ok',
     timestamp: new Date().toISOString(),
     message: 'PubHub API is running'
   });
 });
+
+// Inngest serve endpoint - handles all Inngest background jobs
+app.on(['GET', 'POST', 'PUT'], '/make-server-dc1f2437/inngest', serve({
+  client: inngest,
+  functions,
+}));
 
 // Auth test endpoint
 app.get('/make-server-dc1f2437/auth-test', async (c) => {
@@ -40,41 +75,19 @@ app.get('/make-server-dc1f2437/auth-test', async (c) => {
   });
 });
 
-// Helper to decode base64url (used in JWT)
-function base64UrlDecode(str: string): string {
-  try {
-    // Replace URL-safe characters with standard base64 characters
-    let base64 = str.replace(/-/g, '+').replace(/_/g, '/');
-    
-    // Add padding if needed
-    const padding = base64.length % 4;
-    if (padding > 0) {
-      base64 += '='.repeat(4 - padding);
-    }
-    
-    // Decode from base64 using TextDecoder
-    const binaryString = atob(base64);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    
-    return new TextDecoder().decode(bytes);
-  } catch (error) {
-    console.error('Error in base64UrlDecode:', error);
-    throw error;
-  }
-}
-
-// Helper to get authenticated user from Clerk or Supabase
+// Helper to get authenticated user with proper JWT verification
 async function getAuthUser(request: Request) {
   const authHeader = request.headers.get('Authorization');
 
   console.log('==================== AUTH CHECK ====================');
   console.log('Authorization header:', authHeader ? 'Present' : 'Missing');
+  console.log('Security mode:', SECURITY_MODE);
 
   if (!authHeader) {
-    console.log('No auth header - using demo user');
+    if (SECURITY_MODE === 'strict') {
+      throw new Error('Authentication required');
+    }
+    console.log('No auth header - using demo user (dev mode)');
     return {
       id: 'demo-user-123',
       email: 'demo@pubhub.test',
@@ -84,7 +97,10 @@ async function getAuthUser(request: Request) {
 
   const token = authHeader.replace('Bearer ', '');
   if (!token || token === authHeader) {
-    console.log('No Bearer token - using demo user');
+    if (SECURITY_MODE === 'strict') {
+      throw new Error('Invalid authorization format');
+    }
+    console.log('No Bearer token - using demo user (dev mode)');
     return {
       id: 'demo-user-123',
       email: 'demo@pubhub.test',
@@ -98,7 +114,10 @@ async function getAuthUser(request: Request) {
   // Check if this is the Supabase anon key (used for public access)
   const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
   if (supabaseAnonKey && token === supabaseAnonKey) {
-    console.log('✅ Supabase anon key detected - using demo user for public access');
+    if (SECURITY_MODE === 'strict') {
+      throw new Error('Supabase anon key not allowed in strict mode');
+    }
+    console.log('✅ Supabase anon key detected - using demo user (dev mode)');
     console.log('==================================================');
     return {
       id: 'demo-user-123',
@@ -106,92 +125,72 @@ async function getAuthUser(request: Request) {
       name: 'Demo User',
     };
   }
-  
+
   try {
-    const clerkSecretKey = Deno.env.get('CLERK_SECRET_KEY');
-    console.log('CLERK_SECRET_KEY configured:', clerkSecretKey ? 'Yes' : 'No');
-    
-    if (!clerkSecretKey) {
-      console.log('No Clerk secret key - using demo user');
-      return {
-        id: 'demo-user-123',
-        email: 'demo@pubhub.test',
-        name: 'Demo User',
-      };
+    // In strict mode, verify the token cryptographically
+    if (SECURITY_MODE === 'strict') {
+      console.log('🔒 Strict mode: Verifying JWT with Clerk API');
+      try {
+        const verified = await verifyClerkToken(token);
+        console.log('✅ JWT verified successfully:', verified.userId);
+        console.log('==================================================');
+
+        return {
+          id: verified.userId,
+          email: verified.user?.email || 'user@example.com',
+          name: verified.user?.first_name || verified.user?.username || 'User',
+          verified: true,
+        };
+      } catch (verifyError) {
+        console.error('❌ JWT verification failed:', verifyError.message);
+        throw new Error('Authentication failed: ' + verifyError.message);
+      }
     }
 
-    // Split JWT into parts
-    const parts = token.split('.');
-    console.log('JWT parts count:', parts.length);
-    
-    if (parts.length !== 3) {
-      console.log('Invalid JWT format - using demo user');
-      return {
-        id: 'demo-user-123',
-        email: 'demo@pubhub.test',
-        name: 'Demo User',
-      };
-    }
+    // In dev mode, decode without verification (INSECURE - only for development)
+    console.log('⚠️  Dev mode: Decoding JWT without verification');
+    const payload = decodeJWTPayload(token);
+    console.log('JWT payload decoded:', {
+      sub: payload.sub,
+      email: payload.email,
+      exp: payload.exp,
+      iat: payload.iat,
+      iss: payload.iss,
+    });
 
-    // Decode the payload (middle part)
-    let payload;
-    try {
-      const decodedPayload = base64UrlDecode(parts[1]);
-      payload = JSON.parse(decodedPayload);
-      console.log('JWT payload decoded:', {
-        sub: payload.sub,
-        email: payload.email,
-        exp: payload.exp,
-        iat: payload.iat,
-        iss: payload.iss,
-      });
-    } catch (decodeError) {
-      console.error('Failed to decode JWT payload:', decodeError);
-      console.log('Using demo user');
-      return {
-        id: 'demo-user-123',
-        email: 'demo@pubhub.test',
-        name: 'Demo User',
-      };
-    }
-    
     // Check if token is expired
     const now = Date.now() / 1000;
     if (payload.exp && payload.exp < now) {
       console.log('Token expired:', { exp: payload.exp, now, diff: now - payload.exp });
-      console.log('Using demo user');
-      return {
-        id: 'demo-user-123',
-        email: 'demo@pubhub.test',
-        name: 'Demo User',
-      };
+      throw new Error('Token expired');
     }
 
     // Get user ID from the payload
     const userId = payload.sub;
-    
+
     if (!userId) {
-      console.log('No user ID in payload - using demo user');
-      return {
-        id: 'demo-user-123',
-        email: 'demo@pubhub.test',
-        name: 'Demo User',
-      };
+      throw new Error('No user ID in token payload');
     }
 
-    // Successfully decoded and validated
-    console.log('✅ Authentication successful for user:', userId);
+    console.log('✅ Authentication successful (unverified dev mode):', userId);
     console.log('==================================================');
-    
+
     return {
       id: userId,
       email: payload.email || payload.email_addresses?.[0]?.email_address || 'user@example.com',
       name: payload.name || payload.given_name || payload.first_name || 'User',
+      verified: false,
     };
   } catch (error) {
     console.error('Error in getAuthUser:', error);
-    console.log('Using demo user');
     console.log('==================================================');
+
+    if (SECURITY_MODE === 'strict') {
+      throw error; // Propagate error in strict mode
+    }
+
+    // In dev mode, fall back to demo user
+    console.log('Using demo user fallback (dev mode)');
     return {
       id: 'demo-user-123',
       email: 'demo@pubhub.test',
@@ -530,7 +529,7 @@ app.post('/make-server-dc1f2437/validate-subreddit', async (c) => {
   }
 });
 
-// Scan History - Enhanced with better relevance scoring
+// Scan History - Triggers Inngest background job
 app.post('/make-server-dc1f2437/scan-history', async (c) => {
   try {
     console.log('==================== SCAN HISTORY START ====================');
@@ -558,6 +557,37 @@ app.post('/make-server-dc1f2437/scan-history', async (c) => {
       return c.json({ error: 'Project not found' }, 404);
     }
 
+    // Trigger Inngest background job for scanning
+    console.log('[Scan] Triggering Inngest background job');
+    await inngest.send({
+      name: 'reddit/scan.requested',
+      data: {
+        projectId,
+        userId: user.id,
+        subreddits,
+        tier: profile?.tier || 'free',
+      },
+    });
+
+    // Return immediately - scan will run in background
+    return c.json({
+      status: 'scanning',
+      message: 'Scan started in background. Results will appear in your feed shortly.',
+      projectId,
+      subreddits: subreddits.length,
+    });
+
+  } catch (error) {
+    console.log(`❌ Scan history error: ${error.message}`);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+/* Original inline scanning code removed - handled by Inngest function 'scanRedditSubreddits'
+// Kept here for reference if needed to revert to inline implementation
+
+app.post('/make-server-dc1f2437/scan-history-inline-backup', async (c) => {
+  try {
     // Determine scan days based on tier
     // Free: 1 day, Basic: 30 days, Pro: 90 days
     const scanDays = profile.tier === 'pro' ? 90 : profile.tier === 'basic' ? 30 : 1;
@@ -733,24 +763,7 @@ app.post('/make-server-dc1f2437/scan-history', async (c) => {
     console.log(`Feed items created: ${feedItems.length}`);
     console.log('=======================================================\n');
 
-    return c.json({
-      scanned: totalScanned,
-      newItems: feedItems.length,
-      items: feedItems,
-      debug: {
-        totalScanned,
-        withinDateRange,
-        matchedPosts,
-        keywords: keywords.length,
-        subreddits: subreddits.length
-      }
-    });
-  } catch (error) {
-    console.log(`❌ Scan history error: ${error.message}`);
-    console.error('Full error stack:', error.stack);
-    return c.json({ error: error.message }, 500);
-  }
-});
+*/
 
 // Monitor Subreddits - Real-time monitoring
 app.post('/make-server-dc1f2437/monitor-subreddits', async (c) => {

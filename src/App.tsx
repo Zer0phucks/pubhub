@@ -18,6 +18,7 @@ import { Toaster, toast } from './components/ui/sonner';
 import { BackendCheck } from './components/BackendCheck';
 import { ClerkDebug } from './components/ClerkDebug';
 import { DemoModeBanner } from './components/DemoModeBanner';
+import ErrorBoundary from './components/ErrorBoundary';
 import { api, setGetTokenFunction } from './lib/api';
 import { Loader2 } from 'lucide-react';
 
@@ -423,16 +424,22 @@ export default function App() {
   };
   
   return (
-    <ClerkProvider 
-      publishableKey={CLERK_PUBLISHABLE_KEY}
-      fallbackRedirectUrl="/"
-    >
-      <SignedOut>
-        <PublicSite />
-      </SignedOut>
-      <SignedIn>
-        <AppContent />
-      </SignedIn>
-    </ClerkProvider>
+    <ErrorBoundary>
+      <ClerkProvider
+        publishableKey={CLERK_PUBLISHABLE_KEY}
+        fallbackRedirectUrl="/"
+      >
+        <SignedOut>
+          <ErrorBoundary>
+            <PublicSite />
+          </ErrorBoundary>
+        </SignedOut>
+        <SignedIn>
+          <ErrorBoundary>
+            <AppContent />
+          </ErrorBoundary>
+        </SignedIn>
+      </ClerkProvider>
+    </ErrorBoundary>
   );
 }
