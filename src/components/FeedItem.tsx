@@ -3,8 +3,18 @@ import { Card, CardContent, CardHeader } from './ui/card';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
 import { Badge } from './ui/badge';
-import { MessageSquare, ThumbsUp, ExternalLink, Sparkles, Send, Edit2, X, Loader2 } from 'lucide-react';
+import { MessageSquare, ThumbsUp, ExternalLink, Sparkles, Send, Edit2, X, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { api } from '../lib/api';
+
+interface Comment {
+  id: string;
+  author: string;
+  body: string;
+  score: number;
+  created_utc: number;
+  permalink: string;
+  relevance_score: number;
+}
 
 interface FeedItemProps {
   item: {
@@ -20,6 +30,7 @@ interface FeedItemProps {
     num_comments: number;
     created_at: string;
     ai_response: string | null;
+    comments?: Comment[];
   };
   onUpdate: () => void;
 }
@@ -30,6 +41,7 @@ export function FeedItem({ item, onUpdate }: FeedItemProps) {
   const [editing, setEditing] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [sending, setSending] = useState(false);
+  const [showComments, setShowComments] = useState(false);
 
   const handleGenerateResponse = async () => {
     setGenerating(true);
@@ -200,6 +212,54 @@ export function FeedItem({ item, onUpdate }: FeedItemProps) {
                 )}
               </Button>
             </div>
+          </div>
+        )}
+
+        {item.comments && item.comments.length > 0 && (
+          <div className="border-t pt-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowComments(!showComments)}
+              className="w-full justify-between"
+            >
+              <span className="flex items-center gap-2">
+                <MessageSquare className="h-4 w-4" />
+                {item.comments.length} Relevant Comment{item.comments.length !== 1 ? 's' : ''}
+              </span>
+              {showComments ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </Button>
+
+            {showComments && (
+              <div className="mt-3 space-y-3">
+                {item.comments.map((comment) => (
+                  <div
+                    key={comment.id}
+                    className="pl-4 border-l-2 border-teal-200 space-y-2 p-3 bg-slate-50 rounded-r-lg"
+                  >
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span className="font-medium">u/{comment.author}</span>
+                      <span>•</span>
+                      <span>{formatDate(new Date(comment.created_utc * 1000).toISOString())}</span>
+                      <div className="flex items-center gap-1 ml-auto">
+                        <ThumbsUp className="h-3 w-3" />
+                        <span>{comment.score}</span>
+                      </div>
+                    </div>
+                    <p className="text-sm">{comment.body}</p>
+                    <a
+                      href={`https://reddit.com${comment.permalink}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-teal-600 hover:underline flex items-center gap-1"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      View on Reddit
+                    </a>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </CardContent>

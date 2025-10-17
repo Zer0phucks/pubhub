@@ -98,6 +98,37 @@ export const scanRedditSubreddits = inngest.createFunction(
 
             if (relevanceScore > 0 || reddit.isRelevant(text, keywords)) {
               matchedPosts++;
+
+              // Fetch relevant comments for this post
+              const relevantComments: any[] = [];
+              try {
+                console.log(`[Inngest][Scan] Fetching comments for post ${postData.id}`);
+                const comments = await reddit.getPostComments(subreddit, postData.id);
+
+                // Filter comments by relevance
+                for (const comment of comments) {
+                  const commentText = comment.body || '';
+                  const commentScore = reddit.calculateRelevanceScore(commentText, keywords);
+
+                  if (commentScore > 0 || reddit.isRelevant(commentText, keywords)) {
+                    relevantComments.push({
+                      id: comment.id,
+                      author: comment.author,
+                      body: comment.body,
+                      score: comment.score,
+                      created_utc: comment.created_utc,
+                      permalink: comment.permalink,
+                      relevance_score: commentScore,
+                    });
+                  }
+                }
+
+                console.log(`[Inngest][Scan] Found ${relevantComments.length} relevant comments for post ${postData.id}`);
+              } catch (error) {
+                console.error(`[Inngest][Scan] Error fetching comments for post ${postData.id}:`, error);
+                // Continue without comments if fetch fails
+              }
+
               const itemId = crypto.randomUUID();
               const feedItem = {
                 id: itemId,
@@ -113,6 +144,7 @@ export const scanRedditSubreddits = inngest.createFunction(
                 num_comments: postData.num_comments,
                 relevance_score: relevanceScore,
                 created_at: reddit.formatRedditTimestamp(postData.created_utc),
+                comments: relevantComments, // Nested comments array
                 ai_response: null,
                 status: 'pending',
               };
