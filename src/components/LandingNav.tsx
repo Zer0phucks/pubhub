@@ -5,10 +5,11 @@ import { Button } from './ui/button';
 interface LandingNavProps {
   onNavigate: (page: string) => void;
   onSignIn: () => void;
+  onSignUp: () => void;
   currentPage: string;
 }
 
-export function LandingNav({ onNavigate, onSignIn, currentPage }: LandingNavProps) {
+export function LandingNav({ onNavigate, onSignIn, onSignUp, currentPage }: LandingNavProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navigation = [
@@ -44,12 +45,21 @@ export function LandingNav({ onNavigate, onSignIn, currentPage }: LandingNavProp
                 {item.name}
               </button>
             ))}
-            <Button
-              onClick={onSignIn}
-              className="bg-gradient-to-r from-teal-600 via-emerald-600 to-cyan-600 text-white hover:opacity-90"
-            >
-              Sign In
-            </Button>
+            <div className="flex items-center gap-3">
+              <Button
+                onClick={onSignIn}
+                variant="outline"
+                className="border-teal-600 text-teal-600 hover:bg-teal-50"
+              >
+                Sign In
+              </Button>
+              <Button
+                onClick={onSignUp}
+                className="bg-gradient-to-r from-teal-600 via-emerald-600 to-cyan-600 text-white hover:opacity-90"
+              >
+                Sign Up
+              </Button>
+            </div>
           </div>
 
           {/* Mobile menu button */}
@@ -84,15 +94,25 @@ export function LandingNav({ onNavigate, onSignIn, currentPage }: LandingNavProp
                 {item.name}
               </button>
             ))}
-            <div className="px-4 pt-2">
+            <div className="px-4 pt-2 space-y-3">
               <Button
                 onClick={() => {
                   onSignIn();
                   setMobileMenuOpen(false);
                 }}
-                className="w-full bg-gradient-to-r from-teal-600 via-emerald-600 to-cyan-600 text-white hover:opacity-90"
+                variant="outline"
+                className="w-full border-teal-600 text-teal-600 hover:bg-teal-50"
               >
                 Sign In
+              </Button>
+              <Button
+                onClick={() => {
+                  onSignUp();
+                  setMobileMenuOpen(false);
+                }}
+                className="w-full bg-gradient-to-r from-teal-600 via-emerald-600 to-cyan-600 text-white hover:opacity-90"
+              >
+                Sign Up
               </Button>
             </div>
           </div>

@@ -331,6 +331,10 @@ function PublicSite() {
     setCurrentPage('signin');
   };
 
+  const handleSignUp = () => {
+    setCurrentPage('signup');
+  };
+
   const handleNavigate = (page: string) => {
     setCurrentPage(page as PublicPage);
     window.scrollTo(0, 0);
@@ -401,6 +405,7 @@ function PublicSite() {
       <LandingNav
         onNavigate={handleNavigate}
         onSignIn={handleSignIn}
+        onSignUp={handleSignUp}
         currentPage={currentPage}
       />
       
