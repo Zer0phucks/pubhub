@@ -190,19 +190,19 @@ export function Feed({ projectId, project }: FeedProps) {
               <TooltipTrigger asChild>
                 <Button
                   variant="default"
-                  size="sm"
+                  size="default"
                   onClick={handleScanNow}
                   disabled={scanning}
-                  className="bg-teal-600 hover:bg-teal-700 text-white"
+                  className="bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200 px-6 py-5"
                 >
                   {scanning ? (
                     <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      <Loader2 className="h-5 w-5 mr-2 animate-spin" />
                       Scanning...
                     </>
                   ) : (
                     <>
-                      <Scan className="h-4 w-4 mr-2" />
+                      <Scan className="h-5 w-5 mr-2" />
                       Scan Now
                     </>
                   )}
