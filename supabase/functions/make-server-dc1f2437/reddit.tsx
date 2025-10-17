@@ -16,6 +16,11 @@ interface UserRedditTokens {
 
 let redditToken: { token: string; expiry: number } | null = null;
 
+// Test helper to reset token cache
+export function __resetTokenCache() {
+  redditToken = null;
+}
+
 function createRequestId(scope: string): string {
   const base = typeof crypto !== 'undefined' && 'randomUUID' in crypto
     ? crypto.randomUUID()

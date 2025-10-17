@@ -26,21 +26,15 @@ describe('Reddit Module', () => {
     mockEnv.get.mockClear();
     vi.clearAllMocks();
 
-    // Clear token cache between tests by invalidating it
-    // @ts-ignore - Access internal cache (redditToken variable)
-    if (reddit.redditToken) {
-      reddit.redditToken = null;
-    }
+    // Clear token cache between tests
+    reddit.__resetTokenCache();
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
 
     // Also clear cache after test
-    // @ts-ignore
-    if (reddit.redditToken) {
-      reddit.redditToken = null;
-    }
+    reddit.__resetTokenCache();
   });
 
   describe('isValidSubredditName', () => {
@@ -260,7 +254,7 @@ describe('Reddit Module', () => {
         text: async () => 'Unauthorized',
       });
 
-      await expect(reddit.getRedditToken()).rejects.toThrow('Failed to get Reddit token');
+      await expect(reddit.getRedditToken()).rejects.toThrow('Reddit authentication failed');
     });
   });
 
