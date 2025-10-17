@@ -4,6 +4,7 @@ import { ProjectSelector } from './components/ProjectSelector';
 import { Sidebar } from './components/Sidebar';
 import { ProfileMenu } from './components/ProfileMenu';
 import { CreateProjectModal } from './components/CreateProjectModal';
+import { Onboarding } from './components/Onboarding';
 import { Feed } from './components/Feed';
 import { CreatePost } from './components/CreatePost';
 import { ProjectSettings } from './components/ProjectSettings';
@@ -179,6 +180,27 @@ function AppContent() {
             <p className="text-sm text-muted-foreground">Initializing...</p>
           </div>
         </div>
+      </>
+    );
+  }
+
+  // Show onboarding if user hasn't completed it
+  // This requires connecting Reddit and creating a project
+  if (!user.onboardingCompleted || (!user.reddit?.connected && projects.length === 0)) {
+    const handleOnboardingComplete = async () => {
+      // Mark onboarding as completed
+      try {
+        await api.updateUserProfile({ onboardingCompleted: true });
+        await loadUserData(); // Reload data
+      } catch (error) {
+        console.error('Error completing onboarding:', error);
+      }
+    };
+
+    return (
+      <>
+        <Toaster />
+        <Onboarding userTier={user.tier || 'free'} onComplete={handleOnboardingComplete} />
       </>
     );
   }

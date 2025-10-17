@@ -224,6 +224,7 @@ app.post('/make-server-dc1f2437/init-profile', async (c) => {
       name: user.name || user.email.split('@')[0],
       tier: 'free', // free, basic, pro
       theme: 'system',
+      onboardingCompleted: false, // Track if user completed onboarding
       created_at: new Date().toISOString(),
     };
 
