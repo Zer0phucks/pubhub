@@ -1,6 +1,6 @@
 import { projectId, publicAnonKey } from '../utils/supabase/info';
 
-const API_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-dc1f2437`;
+const API_BASE = `https://${projectId}.supabase.co/functions/v1/api`;
 
 let getTokenFn: (() => Promise<string | null>) | null = null;
 
