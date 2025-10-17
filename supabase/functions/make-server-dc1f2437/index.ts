@@ -222,7 +222,7 @@ app.post('/make-server-dc1f2437/init-profile', async (c) => {
       id: user.id,
       email: user.email,
       name: user.name || user.email.split('@')[0],
-      tier: 'free', // free, basic, pro
+      tier: 'pro', // TEMPORARY: Set to 'pro' for testing (until Clerk subscriptions are setup)
       theme: 'system',
       onboardingCompleted: false, // Track if user completed onboarding
       created_at: new Date().toISOString(),
@@ -286,12 +286,13 @@ app.post('/make-server-dc1f2437/projects', async (c) => {
     const profile = await kv.get(`user:${user.id}`);
     const existingProjects = await kv.getByPrefix(`project:${user.id}:`);
 
-    const limits = { free: 1, basic: 5, pro: Infinity };
-    const limit = limits[profile.tier] || 1;
-
-    if (existingProjects.length >= limit) {
-      return c.json({ error: `Project limit reached for ${profile.tier} tier` }, 400);
-    }
+    // TEMPORARY: Remove limits for testing (until Clerk subscriptions are setup)
+    // const limits = { free: 1, basic: 5, pro: Infinity };
+    // const limit = limits[profile.tier] || 1;
+    // if (existingProjects.length >= limit) {
+    //   return c.json({ error: `Project limit reached for ${profile.tier} tier` }, 400);
+    // }
+    console.log('[Testing Mode] Project limits disabled - allowing unlimited projects');
 
     // Generate keywords using AI
     console.log('Generating keywords for project:', description);

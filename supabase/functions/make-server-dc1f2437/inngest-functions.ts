@@ -65,11 +65,12 @@ export const scanRedditSubreddits = inngest.createFunction(
     });
 
     // Step 4: Determine scan window based on tier
-    const scanDays = tier === 'pro' ? 90 : tier === 'basic' ? 30 : 1;
+    // TEMPORARY: Set all tiers to 90 days for testing (until Clerk subscriptions are setup)
+    const scanDays = 90; // tier === 'pro' ? 90 : tier === 'basic' ? 30 : 1;
     const cutoffDate = Date.now() - (scanDays * 24 * 60 * 60 * 1000);
     const keywords = project.keywords?.length > 0 ? project.keywords : reddit.extractKeywords(project.description);
 
-    console.log(`[Inngest][Scan] Starting scan: ${scanDays} days for ${tier} tier, ${keywords.length} keywords`);
+    console.log(`[Inngest][Scan] Starting scan: ${scanDays} days (TESTING MODE - all tiers get Pro access), ${keywords.length} keywords`);
 
     // Step 5: Scan each subreddit in parallel
     const feedItems = await step.run('scan-subreddits', async () => {
